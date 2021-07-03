@@ -2,14 +2,15 @@
 
 ## Requirements.
 
-* [CMake](https://cmake.org/runningcmake/)
-* [Point Cloud Library](https://pointclouds.org/downloads/)
-* [CUDA 11.0 or higher](https://developer.nvidia.com/cuda-toolkit-archive) (if you want to use GPU version of PCL)
+* [Ubuntu (20.04 or higher)](https://ubuntu.com/download/desktop)
+* [CMake (3.6 or higher)](https://cmake.org/runningcmake/)
+* [Point Cloud Library (1.10.0 or higher)](https://pointclouds.org/downloads/)
+* [CUDA (11.0 or higher)](https://developer.nvidia.com/cuda-toolkit-archive) (if you want to use GPU version of PCL)
 
 ## Building and compiling the project on Linux (Ubuntu) using CMake
 
 * Downloading the project files using this in your command console :  
-`git clone https://github.com/fredotran/autonav-pcl-cpp.git`
+`git clone https://github.com/fredotran/3d-registration-pcl.git`
 * Create a `build` folder, go to the folder by using : `cd build`.
 * Use : `cmake ..` cmd line to build and generate the dependencies of the project into the `build` folder.
 * Use : `make` to compile the project each time you did modifications (be sure to be in the `build` folder).
