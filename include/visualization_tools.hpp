@@ -27,7 +27,13 @@ void multipleViewPointCloudsSift(PointCloudPtr inputSrcCloudPtr,
                                  PtCloudPointWithScalePtr sourceSiftKeypointsPtr,
                                  PtCloudPointWithScalePtr targetSiftKeypointsPtr,
                                  PointCloudPtr transformedCloudPtr);
-                                   
+
+void visualizeMultipleResults(PointCloudPtr referenceCloudPtr1,
+                              PointCloudPtr sourceCloudPtr1,
+                              PointCloudPtr transformedCloudPtr1,
+                              PointCloudPtr referenceCloudPtr2,
+                              PointCloudPtr sourceCloudPtr2,
+                              PointCloudPtr transformedCloudPtr2);
 
 /*******************************************************************************************************************************************************/
 /*******************************************************************************************************************************************************/
@@ -205,7 +211,7 @@ void multipleViewPointCloudsSift(PointCloudPtr inputSrcCloudPtr,
     }
 }
 
-/* Method to visualize the comparison between matching results */
+/* Method to visualize the comparison between matching results (2 point clouds) */
 void visualizeMultipleMatchingResults(PointCloudPtr inputTrgCloudPtr1,
                                       PointCloudPtr inputTrgCloudPtr2,
                                       PointCloudPtr transformedCloudPtr1,
@@ -236,3 +242,41 @@ void visualizeMultipleMatchingResults(PointCloudPtr inputTrgCloudPtr1,
     }
 }
 
+/* Method to visualize the comparison between matching results (3 point clouds))*/
+void visualizeMultipleResults(PointCloudPtr referenceCloudPtr1,
+                              PointCloudPtr sourceCloudPtr1,
+                              PointCloudPtr transformedCloudPtr1,
+                              PointCloudPtr referenceCloudPtr2,
+                              PointCloudPtr sourceCloudPtr2,
+                              PointCloudPtr transformedCloudPtr2)
+{
+    pcl::visualization::PCLVisualizer viewer("3D Viewer");
+    viewer.setBackgroundColor(0.0, 0.0, 0.0);
+    int v1(0);
+    int v2(1);
+    viewer.createViewPort(0.0, 0.0, 0.5, 1.0, v1);
+    viewer.createViewPort(0.5, 0.0, 1.0, 1.0, v2);
+    //viewer.initCameraParameters();
+    //viewer.setCameraPosition(0, 0, 0, 0, 0, 0);
+    // Add transformed point cloud to viewer
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> ref_cloud_color_handler1(referenceCloudPtr1, 255, 255, 0);
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> src_cloud_color_handler1(sourceCloudPtr1, 255, 0, 0);
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tf_cloud_color_handler1(transformedCloudPtr1, 0, 0, 255);
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> ref_cloud_color_handler2(referenceCloudPtr2, 255, 255, 0);
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> src_cloud_color_handler2(sourceCloudPtr2, 255, 0, 0);
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tf_cloud_color_handler2(transformedCloudPtr2, 0, 0, 255);
+
+    viewer.addPointCloud(referenceCloudPtr1, ref_cloud_color_handler1, "ref cloud v1", v1);
+    viewer.addPointCloud(sourceCloudPtr1, src_cloud_color_handler1, "source cloud v1", v1);
+    viewer.addPointCloud<pcl::PointXYZ>(transformedCloudPtr1, tf_cloud_color_handler1, "matched cloud1", v1);
+
+    viewer.addPointCloud(referenceCloudPtr2, ref_cloud_color_handler2, "ref cloud v2", v2);
+    viewer.addPointCloud(sourceCloudPtr2, src_cloud_color_handler2, "source cloud v2", v2);
+    viewer.addPointCloud<pcl::PointXYZ>(transformedCloudPtr2, tf_cloud_color_handler2, "matched cloud2", v2);
+
+    while (!viewer.wasStopped())
+    {
+        viewer.spinOnce();
+        pcl_sleep(0.01);
+    }
+}

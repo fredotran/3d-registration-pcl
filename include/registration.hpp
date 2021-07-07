@@ -662,3 +662,5 @@ Eigen::Matrix4f rotationHarrisPipeline(PointCloudPtr sourceCloudPtr, PointCloudP
 
     return final_transformation_harris;
 }
+
+

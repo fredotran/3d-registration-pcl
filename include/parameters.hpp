@@ -64,7 +64,10 @@ typedef pcl::FPFHSignature33 LocalDescriptorFPFH;
 typedef pcl::PointCloud<LocalDescriptorFPFH>::Ptr LocalDescriptorFPFHPtr;
 
 typedef std::tuple<std::string, double, std::string, double, double, double, double, double, double, double, double, double, double> tupleParameters;
-
+typedef std::tuple<PointCloudPtr, PointCloudPtr, PointCloudPtr, PointCloudPtr> tuplePointCloudPtr; 
+typedef std::tuple<double, double, double> tupleOfDouble;
+typedef std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> tupleOfVectorDouble;
+typedef std::vector<pcl::PointXYZ> vectorPointXYZ;
 // PARAMETERS FOR LM DATASETS
 // Parameters for sift computation (source)
 const float min_scale_source = 0.5;       // the standard deviation of the smallest scale in the scale space
@@ -107,8 +110,9 @@ const int nr_samples = 1;
 // Sample Consensus Initial Alignment parameters for LM datasets (rotation)
 const float min_sample_dist_rot = 0.01f;
 const float max_correspondence_dist_rot = 1.0f;
-const int nr_iters_rot = 100;
-const int nr_samples_rot = 25;
+const int nr_iters_rot = 200;
+const int nr_samples_rot = 50;
+// 50 ok
 
 // Sample Consensus Initial Alignment parameters for KEYSTONE datasets
 /*const float min_sample_dist = 0.01f;

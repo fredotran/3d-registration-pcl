@@ -30,13 +30,10 @@ double randomizeDoubleUniform(double *seed, double min, double max);
 std::array<double, 2> randomizeCoordinate(double *seed, double boundariesX[2], double boundariesY[2], double bufferX, double bufferY);
 std::array<double, 4> randomizeSourceCutout(double *seed, double refModelBoundariesX[2], double refModelBoundariesY[2],
                                             double sourceWidth, double sourceHeight, double xUncertainty, double yUncertainty);
-PointCloudPtr randomCropPointCloud(PointCloudPtr cloudPtr,
-                                   PointCloudPtr cloudOutPtr,
-                                   double x_boundaries_min, double x_boundaries_max,
-                                   double y_boundaries_min, double y_boundaries_max,
-                                   double z_boundaries_min, double z_boundaries_max,
-                                   double randomized_x_min, double randomized_x_max,
-                                   double randomized_y_min, double randomized_y_max);
+PointCloudPtr cropPointCloud(PointCloudPtr cloudPtr,
+                             PointCloudPtr cloudOutPtr,
+                             double randomized_x_min, double randomized_x_max,
+                             double randomized_y_min, double randomized_y_max);
 
 // Compute point clouds
 PointCloudPtr computeReferenceCloud(PointCloudPtr surfaceModelCloudPtr,
@@ -68,7 +65,6 @@ PointCloudPtr correctedPointCloud(PointCloudPtr sourcePointCloudPtr,
 
     Eigen::Affine3f transform_translation = Eigen::Affine3f::Identity();
     pcl::compute3DCentroid(*localPointCloudPtr, centroid);
-    //std::cout << centroid << std::endl;
     transform_translation.translation() = new_centroid.head<3>() - centroid.head<3>();
 
     PointCloudPtr transformed_cloud(new PointCloud);
@@ -260,7 +256,7 @@ std::array<double, 4> randomizeReferenceCutout(double *seed, double surfaceModel
     double refWidth = sourceWidth + 2 * xUncertainty;
     double refHeight = sourceHeight + 2 * yUncertainty;
     double refSize = std::max(refWidth, refHeight);
-    
+
     // randomize reference point cloud centroid
     std::array<double, 2> centroid = randomizeCoordinate(seed, surfaceModelBoundariesX, surfaceModelBoundariesY, refSize * 0.5, refSize * 0.5);
 
@@ -295,49 +291,50 @@ std::array<double, 4> randomizeSourceCutout(double *seed, double refModelBoundar
 }
 
 /* Returns the cropped point cloud based on the dimensions of the input cloud*/
-PointCloudPtr randomCropPointCloud(PointCloudPtr cloudPtr,
-                                   PointCloudPtr cloudOutPtr,
-                                   double x_boundaries_min, double x_boundaries_max,
-                                   double y_boundaries_min, double y_boundaries_max,
-                                   double z_boundaries_min, double z_boundaries_max,
-                                   double randomized_x_min, double randomized_x_max,
-                                   double randomized_y_min, double randomized_y_max)
+PointCloudPtr cropPointCloud(PointCloudPtr cloudPtr,
+                             PointCloudPtr cloudOutPtr,
+                             double randomized_x_min, double randomized_x_max,
+                             double randomized_y_min, double randomized_y_max)
 {
-    double ratioWidthAndHeight = abs((x_boundaries_max - x_boundaries_min) / (y_boundaries_max - y_boundaries_min));
-    std::cout << "\nRatio between width and height : " << ratioWidthAndHeight << std::endl;
+    // GetMinMax of the input point cloud
+    pcl::PointXYZ ref_min_pt, ref_max_pt;
+    pcl::getMinMax3D(*cloudPtr, ref_min_pt, ref_max_pt);
+    double xBoundariesRef[2] = {ref_min_pt.x, ref_max_pt.x};
+    double yBoundariesRef[2] = {ref_min_pt.y, ref_max_pt.y};
+    double zBoundariesRef[2] = {ref_min_pt.z, ref_max_pt.z};
+
     // Get the local boundaries
-    double local_boundaries_x = abs(x_boundaries_max - x_boundaries_min);
-    double local_boundaries_y = abs(y_boundaries_max - y_boundaries_min);
-    double local_boundaries_z = abs(z_boundaries_max - z_boundaries_min);
-    double crop_x_min = abs(randomized_x_min - x_boundaries_min);
-    double crop_y_min = abs(randomized_y_min - y_boundaries_min);
-    std::cout << "Global minimum dimensions : " << x_boundaries_min << " " << y_boundaries_min << " " << z_boundaries_min << "\n";
-    std::cout << "Global maximum dimensions : " << x_boundaries_max << " " << y_boundaries_max << " " << z_boundaries_max << "\n";
+    double local_boundaries_x = abs(xBoundariesRef[1] - xBoundariesRef[0]);
+    double local_boundaries_y = abs(yBoundariesRef[1] - yBoundariesRef[0]);
+    double local_boundaries_z = abs(zBoundariesRef[1] - zBoundariesRef[0]);
+
+    std::cout << "Global minimum dimensions : " << xBoundariesRef[0] << " " << yBoundariesRef[0] << " " << zBoundariesRef[0] << "\n";
+    std::cout << "Global maximum dimensions : " << xBoundariesRef[1] << " " << yBoundariesRef[1] << " " << zBoundariesRef[1] << "\n";
     std::cout << "Local box dimensions (before cropping): x = " << local_boundaries_x << ", y = " << local_boundaries_y << ", z = " << local_boundaries_z << endl;
 
-    double croppingCubeMin_x = (crop_x_min) + x_boundaries_min;
-    double croppingCubeMin_y = (crop_y_min) + y_boundaries_min;
+    double croppingCubeMin_x = (randomized_x_min); //+ x_boundaries_min;
+    double croppingCubeMin_y = (randomized_y_min); //+ y_boundaries_min;
 
+    // Min (left)
     Eigen::Vector4f croppingCubeMinPoints;
     croppingCubeMinPoints[0] = croppingCubeMin_x; // x axis
     croppingCubeMinPoints[1] = croppingCubeMin_y; // y axis
-    croppingCubeMinPoints[2] = z_boundaries_min;  // z axis
+    croppingCubeMinPoints[2] = zBoundariesRef[0]; // z axis
     croppingCubeMinPoints[3] = 1.0;               // z axis
 
-    double crop_x_max = abs(randomized_x_max - x_boundaries_max);
-    double crop_y_max = abs(randomized_y_max - y_boundaries_max);
-    double croppingCubeMax_x = x_boundaries_max - (crop_x_max);
-    double croppingCubeMax_y = y_boundaries_max - (crop_y_max);
-
+    double croppingCubeMax_x = (randomized_x_max);
+    double croppingCubeMax_y = (randomized_y_max);
+    // Max (right)
     Eigen::Vector4f croppingCubeMaxPoints;
     croppingCubeMaxPoints[0] = croppingCubeMax_x; // x axis
     croppingCubeMaxPoints[1] = croppingCubeMax_y; // y axis
-    croppingCubeMaxPoints[2] = z_boundaries_max;  // z axis
+    croppingCubeMaxPoints[2] = zBoundariesRef[1]; // z axis
     croppingCubeMaxPoints[3] = 1.0;               // z axis
 
-    double newLocal_x = abs(x_boundaries_max - (crop_x_min + crop_x_max) - x_boundaries_min);
-    double newLocal_y = abs(y_boundaries_max - (crop_y_min + crop_y_max) - y_boundaries_min);
-    double newLocal_z = abs(z_boundaries_max - z_boundaries_min);
+    // Display dimensions after cropping
+    double newLocal_x = abs(randomized_x_max - randomized_x_min);
+    double newLocal_y = abs(randomized_y_max - randomized_y_min);
+    double newLocal_z = local_boundaries_z;
     std::cout << "Local box dimensions (after cropping): x = " << newLocal_x << ", y = " << newLocal_y << ", z = " << newLocal_z << endl;
 
     // crop point cloud
@@ -351,7 +348,7 @@ PointCloudPtr randomCropPointCloud(PointCloudPtr cloudPtr,
 }
 
 /* Compute reference point cloud */
-PointCloudPtr computeReferenceCloud(PointCloudPtr surfaceModelCloudPtr,
+PointCloudPtr computeReferenceCloud(PointCloudPtr surfaceModelCloudPtr, double seedRef,
                                     double sourceWidth, double sourceHeight,
                                     double x_uncertainty, double y_uncertainty)
 {
@@ -360,15 +357,13 @@ PointCloudPtr computeReferenceCloud(PointCloudPtr surfaceModelCloudPtr,
     PointCloudPtr croppedPointCloudPtr(new PointCloud);
     PointCloudPtr outPointCloudPtr(new PointCloud);
     pcl::PointXYZ ref_min_pt, ref_max_pt;
-
-    // GetMinMax of the input point cloud
     pcl::getMinMax3D(*surfaceModelCloudPtr, ref_min_pt, ref_max_pt);
     double xBoundariesRef[2] = {ref_min_pt.x, ref_max_pt.x};
     double yBoundariesRef[2] = {ref_min_pt.y, ref_max_pt.y};
     double zBoundariesRef[2] = {ref_min_pt.z, ref_max_pt.z};
 
+    // Compute reference
     std::array<double, 4> coordRandomizedRef;
-    double seedRef = 1;
     coordRandomizedRef = randomizeReferenceCutout(&seedRef, xBoundariesRef, yBoundariesRef,
                                                   sourceWidth, sourceHeight,
                                                   x_uncertainty, y_uncertainty);
@@ -377,14 +372,11 @@ PointCloudPtr computeReferenceCloud(PointCloudPtr surfaceModelCloudPtr,
     double refRandomizedX_max = coordRandomizedRef[1];
     double refRandomizedY_min = coordRandomizedRef[2];
     double refRandomizedY_max = coordRandomizedRef[3];
-    // random cropping
-    croppedPointCloudPtr = randomCropPointCloud(surfaceModelCloudPtr,
-                                                outPointCloudPtr,
-                                                xBoundariesRef[0], xBoundariesRef[1],
-                                                yBoundariesRef[0], yBoundariesRef[1],
-                                                zBoundariesRef[0], zBoundariesRef[1],
-                                                refRandomizedX_min, refRandomizedX_max,
-                                                refRandomizedY_min, refRandomizedY_max);
+    // cropping
+    croppedPointCloudPtr = cropPointCloud(surfaceModelCloudPtr,
+                                          outPointCloudPtr,
+                                          refRandomizedX_min, refRandomizedX_max,
+                                          refRandomizedY_min, refRandomizedY_max);
 
     copyPointCloud(*croppedPointCloudPtr, *targetCloudPtr);
 
@@ -392,22 +384,20 @@ PointCloudPtr computeReferenceCloud(PointCloudPtr surfaceModelCloudPtr,
 }
 
 /* Compute source point cloud */
-PointCloudPtr computeSourceCloud(PointCloudPtr targetCloudPtr,
+PointCloudPtr computeSourceCloud(PointCloudPtr targetCloudPtr, double seed,
                                  double sourceWidth, double sourceHeight,
                                  double x_uncertainty, double y_uncertainty)
 {
     PointCloudPtr sourceCloudPtr(new PointCloud);
     PointCloudPtr outPointCloudPtr(new PointCloud);
-
-    // Compute source data
     pcl::PointXYZ min_pt, max_pt;
     pcl::getMinMax3D(*targetCloudPtr, min_pt, max_pt);
     double xBoundaries[2] = {min_pt.x, max_pt.x};
     double yBoundaries[2] = {min_pt.y, max_pt.y};
     double zBoundaries[2] = {min_pt.z, max_pt.z};
 
+    // Compute source data
     std::array<double, 4> coordSourceRandomized;
-    double seed = 2;
     coordSourceRandomized = randomizeSourceCutout(&seed, xBoundaries, yBoundaries,
                                                   sourceWidth, sourceHeight,
                                                   x_uncertainty, y_uncertainty);
@@ -417,13 +407,223 @@ PointCloudPtr computeSourceCloud(PointCloudPtr targetCloudPtr,
     double RandomizedY_min_source = coordSourceRandomized[2];
     double RandomizedY_max_source = coordSourceRandomized[3];
     // random cropping
-    sourceCloudPtr = randomCropPointCloud(targetCloudPtr,
-                                          outPointCloudPtr,
-                                          xBoundaries[0], xBoundaries[1],
-                                          yBoundaries[0], yBoundaries[1],
-                                          zBoundaries[0], zBoundaries[1],
-                                          RandomizedX_min_source, RandomizedX_max_source,
-                                          RandomizedY_min_source, RandomizedY_max_source);
+    sourceCloudPtr = cropPointCloud(targetCloudPtr,
+                                    outPointCloudPtr,
+                                    RandomizedX_min_source, RandomizedX_max_source,
+                                    RandomizedY_min_source, RandomizedY_max_source);
 
     return sourceCloudPtr;
+}
+
+/* Full pipeline to run (SIFT + HARRIS) and compare */
+tuplePointCloudPtr fullPipeline(tupleParameters parametersList, double seedRef, double seedSource, double seedCustomRotation)
+{
+    // Extract values from tuple
+    std::string pipelineType, referenceDataFilename;
+    double numIterPipeline, x_uncertainty, y_uncertainty, sourceWidth, sourceHeight;
+    double x_angle_min, x_angle_max, y_angle_min, y_angle_max, z_angle_min, z_angle_max;
+
+    // Method to unzip multiple returns value from parametersArray
+    std::tie(pipelineType, numIterPipeline, referenceDataFilename,
+             x_uncertainty, y_uncertainty, sourceWidth, sourceHeight,
+             x_angle_min, x_angle_max, y_angle_min, y_angle_max, z_angle_min, z_angle_max) = parametersList;
+
+    /*******************************************************/
+    /***************** COMPUTE POINT CLOUDS ****************/
+    /*******************************************************/
+
+    PointCloudPtr sourceCloudPtr(new PointCloud);
+    PointCloudPtr targetCloudPtr(new PointCloud);
+    PointCloudPtr surfaceModelCloudPtr(new PointCloud);
+    PointCloudPtr outPointCloudPtr(new PointCloud);
+    PointCloudPtr croppedPointCloudPtr(new PointCloud);
+
+    // Compute reference data
+    std::string modelSurfaceFileName = referenceDataFilename;
+    std::cout << "Reading " << modelSurfaceFileName << std::endl;
+    surfaceModelCloudPtr = loadingCloud(referenceDataFilename);
+
+    targetCloudPtr = computeReferenceCloud(surfaceModelCloudPtr, seedRef,
+                                           sourceWidth, sourceHeight,
+                                           x_uncertainty, y_uncertainty);
+    sourceCloudPtr = computeSourceCloud(targetCloudPtr, seedSource,
+                                        sourceWidth, sourceHeight,
+                                        x_uncertainty, y_uncertainty);
+
+    // Randomization of angles
+    double randomAngleOnX, randomAngleOnY, randomAngleOnZ;
+    randomAngleOnX = randomizeDoubleUniform(&seedCustomRotation, x_angle_min, x_angle_max);
+    randomAngleOnY = randomizeDoubleUniform(&seedCustomRotation, y_angle_min, y_angle_max);
+    randomAngleOnZ = randomizeDoubleUniform(&seedCustomRotation, z_angle_min, z_angle_max);
+
+    std::cout << "angle on x : " << randomAngleOnX << std::endl;
+    std::cout << "angle on y : " << randomAngleOnY << std::endl;
+    std::cout << "angle on z : " << randomAngleOnZ << std::endl;
+
+    /*******************************************************/
+    /******************* CUSTOM ROTATION *******************/
+    /*******************************************************/
+
+    Eigen::Vector4f centroid(Eigen::Vector4f::Zero());
+    Eigen::Vector4f origin_centroid(Eigen::Vector4f::Zero());
+    Eigen::Vector4f new_centroid(Eigen::Vector4f::Zero());
+    Eigen::Affine3f first_transform = Eigen::Affine3f::Identity();
+    Eigen::Affine3f second_transform = Eigen::Affine3f::Identity();
+    PointCloudPtr newPtCloudPtr(new PointCloud);
+    PointCloudPtr correctPtCloudPtr(new PointCloud);
+    PointCloudPtr sourceTransformedCloudPtr(new PointCloud);
+
+    copyPointCloud(*sourceCloudPtr, *newPtCloudPtr);
+    float trans_x = 0, trans_y = 0, trans_z = 0;
+    first_transform = customRotation(newPtCloudPtr,
+                                     centroid,
+                                     origin_centroid,
+                                     new_centroid,
+                                     randomAngleOnX, randomAngleOnY, randomAngleOnZ);
+
+    std::cout << "\nFirst transformation : \n"
+              << first_transform.matrix() << std::endl;
+    pcl::transformPointCloud(*newPtCloudPtr, *correctPtCloudPtr, first_transform);
+    second_transform = customTranslation(correctPtCloudPtr,
+                                         second_transform,
+                                         trans_x, trans_y, trans_z);
+    pcl::transformPointCloud(*correctPtCloudPtr, *sourceTransformedCloudPtr, second_transform);
+
+    std::cout << "\nSecond transformation : \n"
+              << second_transform.matrix() << std::endl;
+    Eigen::Affine3f final_transform = first_transform * second_transform;
+
+    std::cout << "\nFinal transformation : \n"
+              << final_transform.matrix() << std::endl;
+
+    //visualizeCroppedResults(surfaceModelCloudPtr, targetCloudPtr, sourceTransformedCloudPtr);
+    PointCloud &sourceTransformedCloud = *sourceTransformedCloudPtr;
+    PointCloud &targetCloud = *targetCloudPtr;
+
+    /*******************************************************/
+    /******************** SIFT PIPELINE ********************/
+    /*******************************************************/
+
+    Eigen::Matrix4f rotation_mat_sift;
+    rotation_mat_sift = rotationSiftPipeline(sourceTransformedCloudPtr, targetCloudPtr);
+    PointCloudPtr finalTransformedCloudPtr(new PointCloud);
+    PointCloud &finalTransformedCloud = *finalTransformedCloudPtr;
+    pcl::transformPointCloud(sourceTransformedCloud, finalTransformedCloud, rotation_mat_sift);
+    //visualizeCroppedResults(targetCloudPtr, sourceCloudPtr, finalTransformedCloudPtr);
+
+    /*******************************************************/
+    /******************* HARRIS PIPELINE *******************/
+    /*******************************************************/
+
+    Eigen::Matrix4f rotation_mat_harris;
+    rotation_mat_harris = rotationHarrisPipeline(sourceTransformedCloudPtr, targetCloudPtr);
+    PointCloudPtr finalTransformedCloudPtr2(new PointCloud);
+    PointCloud &finalTransformedCloud2 = *finalTransformedCloudPtr2;
+    pcl::transformPointCloud(sourceTransformedCloud, finalTransformedCloud2, rotation_mat_harris);
+    //visualizeCroppedResults(targetCloudPtr, sourceCloudPtr, finalTransformedCloudPtr2);
+    /*
+    visualizeMultipleResults(targetCloudPtr,
+                             sourceCloudPtr,
+                             finalTransformedCloudPtr,
+                             targetCloudPtr,
+                             sourceCloudPtr,
+                             finalTransformedCloudPtr2);
+*/
+    return {sourceCloudPtr, targetCloudPtr, finalTransformedCloudPtr, finalTransformedCloudPtr2};
+}
+
+/* get the distance between points */
+double distance(const PointXYZ &p1, const PointXYZ &p2)
+{
+    Eigen::Vector3f diff = p1.getVector3fMap() - p2.getVector3fMap();
+    return (diff.norm());
+}
+
+/* Get separated axis coordinates of the points in the point cloud */
+tupleOfVectorDouble getCoordinates(PointCloudPtr srcPointCloudPtr)
+{
+    PointCloud &srcPointCloud = *srcPointCloudPtr;
+    std::vector<double> mtre_x_src, mtre_y_src, mtre_z_src;
+
+    // Sizes of the inputs point cloud are the same
+    for (auto &srcPoint : srcPointCloud)
+    {
+        double value_mtre_x_src = (srcPoint.x);
+        double value_mtre_y_src = (srcPoint.y);
+        double value_mtre_z_src = (srcPoint.z);
+        mtre_x_src.push_back(value_mtre_x_src);
+        mtre_y_src.push_back(value_mtre_y_src);
+        mtre_z_src.push_back(value_mtre_z_src);
+    }
+
+    return {mtre_x_src, mtre_y_src, mtre_z_src};
+}
+
+/* Get the points coordinates in 3D */
+vectorPointXYZ Get3DCoordinatesXYZ(PointCloudPtr srcPointCloudPtr)
+{
+    PointCloud &srcPointCloud = *srcPointCloudPtr;
+    vectorPointXYZ coords;
+    // Sizes of the inputs point cloud are the same
+    for (auto &Point : srcPointCloud)
+    {
+        PointXYZ points = Point;
+        coords.push_back(points);
+    }
+    return coords;
+}
+
+/* Registation error bias */
+tupleOfDouble registrationErrorBias(PointCloudPtr srcPointCloudPtr, PointCloudPtr transformedSrcPointCloudPtr)
+{
+    tupleOfVectorDouble vectorCoordinatesSource;
+    tupleOfVectorDouble vectorCoordinatesTransformedSrc;
+    std::vector<double> mtre_x_src, mtre_y_src, mtre_z_src;
+    std::vector<double> mtre_x_transformed_src, mtre_y_transformed_src, mtre_z_transformed_src;
+    std::vector<double> mtre_x, mtre_y, mtre_z;
+
+    PointCloud &sourceCloud = *srcPointCloudPtr;
+    PointCloud &transformedSrcPointCloud = *transformedSrcPointCloudPtr;
+
+    vectorCoordinatesSource = getCoordinates(srcPointCloudPtr);
+    vectorCoordinatesTransformedSrc = getCoordinates(transformedSrcPointCloudPtr);
+    std::tie(mtre_x_src, mtre_y_src, mtre_z_src) = vectorCoordinatesSource;
+    std::tie(mtre_x_transformed_src, mtre_y_transformed_src, mtre_z_transformed_src) = vectorCoordinatesTransformedSrc;
+
+    for (int i = 0; i < sourceCloud.size(); i++)
+    {
+        double value_mtre_x = mtre_x_src.at(i) - mtre_x_transformed_src.at(i);
+        double value_mtre_y = mtre_y_src.at(i) - mtre_y_transformed_src.at(i);
+        double value_mtre_z = mtre_z_src.at(i) - mtre_z_transformed_src.at(i);
+        mtre_x.push_back(value_mtre_x);
+        mtre_y.push_back(value_mtre_y);
+        mtre_z.push_back(value_mtre_z);
+    }
+    double average_mtre_x_src = std::accumulate(mtre_x.begin(), mtre_x.end(), 0.0) / mtre_x.size();
+    double average_mtre_y_src = std::accumulate(mtre_y.begin(), mtre_y.end(), 0.0) / mtre_y.size();
+    double average_mtre_z_src = std::accumulate(mtre_z.begin(), mtre_z.end(), 0.0) / mtre_z.size();
+
+    return {average_mtre_x_src, average_mtre_y_src, average_mtre_z_src};
+}
+
+/* Mean target registration error */
+double meanTargetRegistrationError(PointCloudPtr srcPointCloudPtr, PointCloudPtr transformedSrcPointCloudPtr)
+{
+    vectorPointXYZ coordinatesSrc;
+    vectorPointXYZ coordinatesSrcTransformed;
+    std::vector<double> norms;
+    PointCloud &sourceCloud = *srcPointCloudPtr;
+    PointCloud &transformedCloud = *transformedSrcPointCloudPtr;
+
+    coordinatesSrc = Get3DCoordinatesXYZ(srcPointCloudPtr);
+    coordinatesSrcTransformed = Get3DCoordinatesXYZ(transformedSrcPointCloudPtr);
+    for (int i = 0; i < sourceCloud.size(); i++)
+    {
+        // Euclidean norm
+        double norm = distance(coordinatesSrc.at(i), coordinatesSrcTransformed.at(i));
+        norms.push_back(norm);
+    }
+    double average_norm = std::accumulate(norms.begin(), norms.end(), 0.0) / norms.size();
+
+    return average_norm;
 }
