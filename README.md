@@ -24,14 +24,14 @@ Steps :
 * Load the (.laz, .las, .xyz etc...) file in CloudCompare
 * Click on the saving button (to save the cloud)
 * Choose "point cloud library format" a.k.a **.pcd**
-* Press enter or ok
+* Press enter or ok, it's done !
 
 ## Launching the pipeline and indicates which input files to use
 
 *What to do ?*
 * You will be able to store your data and the parameters' file to use them in the pipelines, in the `data` folder. 
 * To use a particular point cloud file, you'll need to specify the location address at : `surface_model_data_file` inside the text file.
-* To launch one of the three pipelines : `./[PIPELINE_NAME]`  
+* To launch one of the three pipelines : `./[PIPELINE_NAME] [PARAMETERS_FILENAME]`  
 with PIPELINE_NAME = {harris_pipeline, sift_pipeline, main_registration}.
 
 ## Tools
