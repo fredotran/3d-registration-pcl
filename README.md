@@ -17,6 +17,15 @@
 
 *More infos about how to use PCL in your C++ project here : [tutorial](https://pcl.readthedocs.io/projects/tutorials/en/latest/using_pcl_pcl_config.html#using-pcl-pcl-config)*
 
+## Data 
+To be able to use in good conditions the pipelines, you need first to convert the point cloud data into **.pcd** files.
+You can convert any types of data (.laz, .las, .xyz) using : [CloudCompare](https://www.danielgm.net/cc/). 
+Steps :
+* Load the (.laz, .las, .xyz etc...) file in CloudCompare
+* Click on the saving button (to save the cloud)
+* Choose "point cloud library format" a.k.a **.pcd**
+* Press enter or ok
+
 ## Launching the pipeline and indicates which input files to use
 
 *What to do ?*
