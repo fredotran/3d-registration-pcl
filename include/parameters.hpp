@@ -68,6 +68,7 @@ typedef std::tuple<PointCloudPtr, PointCloudPtr, PointCloudPtr, PointCloudPtr> t
 typedef std::tuple<double, double, double> tupleOfDouble;
 typedef std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> tupleOfVectorDouble;
 typedef std::vector<pcl::PointXYZ> vectorPointXYZ;
+
 // PARAMETERS FOR LM DATASETS
 // Parameters for sift computation (source)
 const float min_scale_source = 0.5;       // the standard deviation of the smallest scale in the scale space
