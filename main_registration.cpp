@@ -2,12 +2,12 @@
 
 int main(int argc, char **argv)
 {
-    if (argc < 1)
+    if (argc < 2)
     {
-        throw std::runtime_error("Required arguments: source_pcl_filename.pcd target_pcl_filename.pcd");
+        throw std::runtime_error("Required arguments: folder_name file_name");
     }
-    std::string folderName = "../data/";
-    std::string suffixFileName = argv[1];
+    std::string folderName = argv[1];
+    std::string suffixFileName = argv[2];
     std::string parametersFilename = folderName + suffixFileName;
     std::vector<std::string> parameters;
     tupleParameters parametersList;
