@@ -2,8 +2,13 @@
 
 int main(int argc, char **argv)
 {
-    std::string parametersFilename = "../data/600m-40deg-FOV_rotation-Z.txt";
-    //std::string parametersFilename = "../data/parameters.txt";
+    if (argc < 1)
+    {
+        throw std::runtime_error("Required arguments: source_pcl_filename.pcd target_pcl_filename.pcd");
+    }
+    std::string folderName = "../data/";
+    std::string suffixFileName = argv[1];
+    std::string parametersFilename = folderName + suffixFileName;
     std::vector<std::string> parameters;
     tupleParameters parametersList;
 
@@ -64,9 +69,9 @@ int main(int argc, char **argv)
     std::cout << "[HARRIS] Registration error bias on y between original source and transformed cloud: " << mtre_y_harris << std::endl;
     std::cout << "[HARRIS] Registration error bias on z between original source and transformed cloud: " << mtre_z_harris << std::endl;
 
-    // Saving the results 
+    // Saving the results
     std::ofstream outfile;
-    outfile.open("./results/data_save_run1.txt", std::ios_base::app); 
+    outfile.open("./results/data_save_run1.txt", std::ios_base::app);
     outfile << "[SIFT] MRTE : " << euclidean_distance_sift << "\n";
     outfile << "[HARRIS] MRTE : " << euclidean_distance_harris << "\n";
     outfile << "[SEED] Reference cutout : " << seedRef << "\n";

@@ -276,9 +276,10 @@ std::array<double, 4> randomizeSourceCutout(double *seed, double refModelBoundar
                                             double sourceWidth, double sourceHeight, double xUncertainty, double yUncertainty)
 {
     // randomize source centroid
-    double xBuffer = xUncertainty;
-    double yBuffer = yUncertainty;
-    std::array<double, 2> centroid = randomizeCoordinate(seed, refModelBoundariesX, refModelBoundariesY, xBuffer, yBuffer);
+    double xBuffer = xUncertainty + (0.5 * sourceWidth);
+    double yBuffer = yUncertainty + (0.5 * sourceHeight);
+    double buffer = std::max(xBuffer, yBuffer);
+    std::array<double, 2> centroid = randomizeCoordinate(seed, refModelBoundariesX, refModelBoundariesY, buffer, buffer);
 
     // compute reference point cloud boundaries
     double xMin = centroid[0] - sourceWidth * 0.5;
@@ -302,29 +303,26 @@ PointCloudPtr cropPointCloud(PointCloudPtr cloudPtr,
     double xBoundariesRef[2] = {ref_min_pt.x, ref_max_pt.x};
     double yBoundariesRef[2] = {ref_min_pt.y, ref_max_pt.y};
     double zBoundariesRef[2] = {ref_min_pt.z, ref_max_pt.z};
-
     // Get the local boundaries
     double local_boundaries_x = abs(xBoundariesRef[1] - xBoundariesRef[0]);
     double local_boundaries_y = abs(yBoundariesRef[1] - yBoundariesRef[0]);
     double local_boundaries_z = abs(zBoundariesRef[1] - zBoundariesRef[0]);
-
     std::cout << "Global minimum dimensions : " << xBoundariesRef[0] << " " << yBoundariesRef[0] << " " << zBoundariesRef[0] << "\n";
     std::cout << "Global maximum dimensions : " << xBoundariesRef[1] << " " << yBoundariesRef[1] << " " << zBoundariesRef[1] << "\n";
     std::cout << "Local box dimensions (before cropping): x = " << local_boundaries_x << ", y = " << local_boundaries_y << ", z = " << local_boundaries_z << endl;
 
-    double croppingCubeMin_x = (randomized_x_min); //+ x_boundaries_min;
-    double croppingCubeMin_y = (randomized_y_min); //+ y_boundaries_min;
-
     // Min (left)
+    double croppingCubeMin_x = randomized_x_min; //+ x_boundaries_min;
+    double croppingCubeMin_y = randomized_y_min; //+ y_boundaries_min;
     Eigen::Vector4f croppingCubeMinPoints;
     croppingCubeMinPoints[0] = croppingCubeMin_x; // x axis
     croppingCubeMinPoints[1] = croppingCubeMin_y; // y axis
     croppingCubeMinPoints[2] = zBoundariesRef[0]; // z axis
     croppingCubeMinPoints[3] = 1.0;               // z axis
 
-    double croppingCubeMax_x = (randomized_x_max);
-    double croppingCubeMax_y = (randomized_y_max);
     // Max (right)
+    double croppingCubeMax_x = randomized_x_max;
+    double croppingCubeMax_y = randomized_y_max;
     Eigen::Vector4f croppingCubeMaxPoints;
     croppingCubeMaxPoints[0] = croppingCubeMax_x; // x axis
     croppingCubeMaxPoints[1] = croppingCubeMax_y; // y axis
@@ -438,11 +436,12 @@ tuplePointCloudPtr fullPipeline(tupleParameters parametersList, double seedRef, 
     PointCloudPtr outPointCloudPtr(new PointCloud);
     PointCloudPtr croppedPointCloudPtr(new PointCloud);
 
-    // Compute reference data
+    // Reading parameters txt file
     std::string modelSurfaceFileName = referenceDataFilename;
     std::cout << "Reading " << modelSurfaceFileName << std::endl;
     surfaceModelCloudPtr = loadingCloud(referenceDataFilename);
 
+    // Computing reference and source cloud
     targetCloudPtr = computeReferenceCloud(surfaceModelCloudPtr, seedRef,
                                            sourceWidth, sourceHeight,
                                            x_uncertainty, y_uncertainty);
@@ -627,5 +626,3 @@ double meanTargetRegistrationError(PointCloudPtr srcPointCloudPtr, PointCloudPtr
 
     return average_norm;
 }
-
-
