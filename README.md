@@ -19,7 +19,8 @@
 
 ## Data 
 To be able to use in good conditions the pipelines, you need first to convert the point cloud data into **.pcd** files.
-You can convert any types of data (.laz, .las, .xyz) using : [CloudCompare](https://www.danielgm.net/cc/). 
+You can convert any types of data (.laz, .las, .xyz) using : [CloudCompare](https://www.danielgm.net/cc/).
+
 Steps :
 * Load the (.laz, .las, .xyz etc...) file in CloudCompare
 * Click on the saving button (to save the cloud)
