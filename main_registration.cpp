@@ -2,8 +2,8 @@
 
 int main(int argc, char **argv)
 {
-    //std::string parametersFilename = "../data/600m-40deg-FOV_rotation-Z.txt";
-    std::string parametersFilename = "../data/parameters.txt";
+    std::string parametersFilename = "../data/600m-40deg-FOV_rotation-Z.txt";
+    //std::string parametersFilename = "../data/parameters.txt";
     std::vector<std::string> parameters;
     tupleParameters parametersList;
 
@@ -21,7 +21,6 @@ int main(int argc, char **argv)
              x_uncertainty, y_uncertainty, sourceWidth, sourceHeight,
              x_angle_min, x_angle_max, y_angle_min, y_angle_max, z_angle_min, z_angle_max) = parametersList;
 
-    double seedRef(1.0), seedSource(1.0), seedCustomRotation(1.0);
     // Run the full pipeline with different seeds
     tuplePointCloudPtr PointCloudsPtrOutput;
     PointCloudPtr sourceCloudPtr(new PointCloud);
@@ -30,9 +29,11 @@ int main(int argc, char **argv)
     PointCloudPtr transformedCloudPtr2(new PointCloud);
 
     // Registration pipeline with SIFT & Harris
+    double seedRef(1.0), seedSource(1.0), seedCustomRotation(1.0);
     PointCloudsPtrOutput = fullPipeline(parametersList, seedRef, seedSource, seedCustomRotation);
     std::tie(sourceCloudPtr, targetCloudPtr, transformedCloudPtr1, transformedCloudPtr2) = PointCloudsPtrOutput;
 
+    // Calculate the mean target registration error
     std::cout << "\n-----------------------------------------------------------------------------------------------" << std::endl;
     std::cout << "--------------------------------- Mean Target Registration Error --------------------------------" << std::endl;
     std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
@@ -41,7 +42,7 @@ int main(int argc, char **argv)
     std::cout << "\n[SIFT] Mean Target Registration Error between original source and transformed cloud: " << euclidean_distance_sift << std::endl;
     std::cout << "[HARRIS] Mean Target Registration Error between original source and transformed cloud: " << euclidean_distance_harris << std::endl;
 
-    // Calculate the REgistration error bias
+    // Calculate the Registration error bias
     PointCloud &sourceCloud = *sourceCloudPtr;
     tupleOfDouble vectorMTRESift;
     tupleOfDouble vectorMTREHarris;
@@ -62,6 +63,17 @@ int main(int argc, char **argv)
     std::cout << "\n[HARRIS] Registration error bias on x between original source and transformed cloud: " << mtre_x_harris << std::endl;
     std::cout << "[HARRIS] Registration error bias on y between original source and transformed cloud: " << mtre_y_harris << std::endl;
     std::cout << "[HARRIS] Registration error bias on z between original source and transformed cloud: " << mtre_z_harris << std::endl;
+
+    // Saving the results 
+    std::ofstream outfile;
+    outfile.open("./results/data_save_run1.txt", std::ios_base::app); 
+    outfile << "[SIFT] MRTE : " << euclidean_distance_sift << "\n";
+    outfile << "[HARRIS] MRTE : " << euclidean_distance_harris << "\n";
+    outfile << "[SEED] Reference cutout : " << seedRef << "\n";
+    outfile << "[SEED] Source cutout : " << seedSource << "\n";
+    outfile << "[SEED] Custom rotation : " << seedCustomRotation << "\n";
+    outfile.close();
+    std::cout << "Results saved." << std::endl;
 
     // Visualization
     //visualizeCroppedResults(targetCloudPtr, sourceCloudPtr, transformedCloudPtr1);

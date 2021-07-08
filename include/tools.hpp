@@ -627,3 +627,5 @@ double meanTargetRegistrationError(PointCloudPtr srcPointCloudPtr, PointCloudPtr
 
     return average_norm;
 }
+
+
