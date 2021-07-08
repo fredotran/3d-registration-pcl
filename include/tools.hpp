@@ -4,6 +4,10 @@
 ////////// PROTOTYPES //////////
 ////////////////////////////////
 
+// saving tools
+void savingResults(std::string &parametersFilename, double siftMRTE, double harrisMRTE,
+                   double seedRef, double seedSource, double seedCustomRotation);
+
 // Transformation tools
 PointCloudPtr correctedPointCloud(PointCloudPtr sourcePointCloudPtr,
                                   Eigen::Vector4f centroid,
@@ -74,7 +78,6 @@ PointCloudPtr correctedPointCloud(PointCloudPtr sourcePointCloudPtr,
     pcl::transformPointCloud(*localPointCloudPtr, *transformed_cloud, transform_translation);
     std::cout << "\nSource point cloud (white) " << std::endl;
     std::cout << "Corrected coordinates point cloud (green) " << std::endl;
-    //visualizeMatchingResults(localPointCloudPtr, transformed_cloud);
 
     pcl::compute3DCentroid(*transformed_cloud, new_centroid);
     std::cout << "\nNew centroid coordinates (after correction) : \n"
@@ -141,9 +144,7 @@ Eigen::Affine3f customRotation(PointCloudPtr sourcePointCloudPtr,
     // Transform back the pcl to the default , using the inverse
     PointCloudPtr new_cloud(new PointCloud);
     Eigen::Affine3f inverse_transform_translation = Eigen::Affine3f::Identity();
-
     inverse_transform_translation = transform_translation.inverse();
-    //pcl::transformPointCloud(*rotation_cloud, *new_cloud, inverse_transform_translation);
     Eigen::Affine3f final_matrix = (inverse_transform_translation * transform_rotation) * transform_translation;
     Eigen::Affine3f inverse_final_matrix = final_matrix.inverse();
 
@@ -495,7 +496,6 @@ tuplePointCloudPtr fullPipeline(tupleParameters parametersList, double seedRef, 
     std::cout << "\nFinal transformation : \n"
               << final_transform.matrix() << std::endl;
 
-    //visualizeCroppedResults(surfaceModelCloudPtr, targetCloudPtr, sourceTransformedCloudPtr);
     PointCloud &sourceTransformedCloud = *sourceTransformedCloudPtr;
     PointCloud &targetCloud = *targetCloudPtr;
 
@@ -508,7 +508,6 @@ tuplePointCloudPtr fullPipeline(tupleParameters parametersList, double seedRef, 
     PointCloudPtr finalTransformedCloudPtr(new PointCloud);
     PointCloud &finalTransformedCloud = *finalTransformedCloudPtr;
     pcl::transformPointCloud(sourceTransformedCloud, finalTransformedCloud, rotation_mat_sift);
-    //visualizeCroppedResults(targetCloudPtr, sourceCloudPtr, finalTransformedCloudPtr);
 
     /*******************************************************/
     /******************* HARRIS PIPELINE *******************/
@@ -519,16 +518,8 @@ tuplePointCloudPtr fullPipeline(tupleParameters parametersList, double seedRef, 
     PointCloudPtr finalTransformedCloudPtr2(new PointCloud);
     PointCloud &finalTransformedCloud2 = *finalTransformedCloudPtr2;
     pcl::transformPointCloud(sourceTransformedCloud, finalTransformedCloud2, rotation_mat_harris);
-    //visualizeCroppedResults(targetCloudPtr, sourceCloudPtr, finalTransformedCloudPtr2);
-    /*
-    visualizeMultipleResults(targetCloudPtr,
-                             sourceCloudPtr,
-                             finalTransformedCloudPtr,
-                             targetCloudPtr,
-                             sourceCloudPtr,
-                             finalTransformedCloudPtr2);
-*/
-    return {sourceCloudPtr, targetCloudPtr, finalTransformedCloudPtr, finalTransformedCloudPtr2};
+
+    return {sourceCloudPtr, targetCloudPtr, sourceTransformedCloudPtr, finalTransformedCloudPtr, finalTransformedCloudPtr2};
 }
 
 /* get the distance between points */
@@ -625,4 +616,113 @@ double meanTargetRegistrationError(PointCloudPtr srcPointCloudPtr, PointCloudPtr
     double average_norm = std::accumulate(norms.begin(), norms.end(), 0.0) / norms.size();
 
     return average_norm;
+}
+
+/* FUll registration pipeline including the errors calculation */
+void fullRegistration(std::string &fullParametersFilename,
+                      std::string &parametersFileName,
+                      double &seedRef,
+                      double &seedSource,
+                      double &seedCustomRotation)
+{
+    tupleParameters parametersList;
+    std::vector<std::string> parameters;
+
+    // Read the parameters from filename
+    parameters = readParameters(fullParametersFilename);
+    // Create an array containing all the elements from the text file
+    parametersList = parametersArray(fullParametersFilename, parameters);
+    // Extract values from tuple
+    std::string pipelineType, referenceDataFilename;
+    double numIterPipeline, x_uncertainty, y_uncertainty, sourceWidth, sourceHeight;
+    double x_angle_min, x_angle_max, y_angle_min, y_angle_max, z_angle_min, z_angle_max;
+
+    // Method to unzip multiple returns value from parametersArray
+    std::tie(pipelineType, numIterPipeline, referenceDataFilename,
+             x_uncertainty, y_uncertainty, sourceWidth, sourceHeight,
+             x_angle_min, x_angle_max, y_angle_min, y_angle_max, z_angle_min, z_angle_max) = parametersList;
+
+    // Run the full pipeline with different seeds
+    tuplePointCloudPtr PointCloudsPtrOutput;
+    PointCloudPtr sourceCloudPtr(new PointCloud);
+    PointCloudPtr targetCloudPtr(new PointCloud);
+    PointCloudPtr sourceTransformedCloudPtr(new PointCloud);
+    PointCloudPtr transformedCloudPtr1(new PointCloud);
+    PointCloudPtr transformedCloudPtr2(new PointCloud);
+
+    // Registration pipeline with SIFT & Harris
+    //double seedRef(1.0), seedSource(1.0), seedCustomRotation(1.0);
+    PointCloudsPtrOutput = fullPipeline(parametersList, seedRef, seedSource, seedCustomRotation);
+    std::tie(sourceCloudPtr, targetCloudPtr, sourceTransformedCloudPtr, transformedCloudPtr1, transformedCloudPtr2) = PointCloudsPtrOutput;
+
+    // Calculate the mean target registration error
+    std::cout << "\n-----------------------------------------------------------------------------------------------" << std::endl;
+    std::cout << "--------------------------------- Mean Target Registration Error --------------------------------" << std::endl;
+    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+    double euclidean_distance_sift = meanTargetRegistrationError(sourceCloudPtr, transformedCloudPtr1);
+    double euclidean_distance_harris = meanTargetRegistrationError(sourceCloudPtr, transformedCloudPtr2);
+    std::cout << "\n[SIFT] Mean Target Registration Error between original source and transformed cloud: " << euclidean_distance_sift << std::endl;
+    std::cout << "[HARRIS] Mean Target Registration Error between original source and transformed cloud: " << euclidean_distance_harris << std::endl;
+
+    // Calculate the Registration error bias
+    PointCloud &sourceCloud = *sourceCloudPtr;
+    tupleOfDouble vectorMTRESift;
+    tupleOfDouble vectorMTREHarris;
+    double mtre_x_sift, mtre_y_sift, mtre_z_sift;
+    double mtre_x_harris, mtre_y_harris, mtre_z_harris;
+
+    vectorMTRESift = registrationErrorBias(sourceCloudPtr, transformedCloudPtr1);
+    vectorMTREHarris = registrationErrorBias(sourceCloudPtr, transformedCloudPtr2);
+    std::tie(mtre_x_sift, mtre_y_sift, mtre_z_sift) = vectorMTRESift;
+    std::tie(mtre_x_harris, mtre_y_harris, mtre_z_harris) = vectorMTREHarris;
+
+    std::cout << "\n-----------------------------------------------------------------------------------------------" << std::endl;
+    std::cout << "------------------------------------ Registration error bias ------------------------------------" << std::endl;
+    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+    std::cout << "\n[SIFT] Registration error bias on x between original source and transformed cloud: " << mtre_x_sift << std::endl;
+    std::cout << "[SIFT] Registration error bias on y between original source and transformed cloud: " << mtre_y_sift << std::endl;
+    std::cout << "[SIFT] Registration error bias on z between original source and transformed cloud: " << mtre_z_sift << std::endl;
+    std::cout << "\n[HARRIS] Registration error bias on x between original source and transformed cloud: " << mtre_x_harris << std::endl;
+    std::cout << "[HARRIS] Registration error bias on y between original source and transformed cloud: " << mtre_y_harris << std::endl;
+    std::cout << "[HARRIS] Registration error bias on z between original source and transformed cloud: " << mtre_z_harris << std::endl;
+
+    savingResults(parametersFileName, euclidean_distance_sift, euclidean_distance_harris,
+                  seedRef, seedSource, seedCustomRotation);
+
+    std::cout << "\nGreen : Reference point cloud " << std::endl;
+    std::cout << "Red : Source point cloud " << std::endl;
+    std::cout << "Light blue : Custom transformed point cloud " << std::endl;
+    std::cout << "Blue : Point cloud obtained through alignment proccess " << std::endl;
+    // Visualization
+    //visualizeCroppedResults(targetCloudPtr, sourceCloudPtr, transformedCloudPtr1);
+    visualizeMultipleResults(targetCloudPtr,
+                             sourceCloudPtr,
+                             sourceTransformedCloudPtr,
+                             transformedCloudPtr1,
+                             targetCloudPtr,
+                             sourceCloudPtr,
+                             sourceTransformedCloudPtr,
+                             transformedCloudPtr2);
+}
+
+void savingResults(std::string &parametersFilename, double siftMRTE, double harrisMRTE,
+                   double seedRef, double seedSource, double seedCustomRotation)
+{
+    // Saving the results
+    std::ofstream outfile;
+    std::string savedFilename = "../results/" + parametersFilename + "_results";
+
+    outfile.open(savedFilename, std::ios_base::app);
+    outfile << "[SIFT] MRTE : "
+            << siftMRTE << "\n";
+    outfile << "[HARRIS] MRTE : "
+            << harrisMRTE << "\n";
+    outfile << "[SEED] Reference cutout : "
+            << seedRef << "\n";
+    outfile << "[SEED] Source cutout : "
+            << seedSource << "\n";
+    outfile << "[SEED] Custom rotation : "
+            << seedCustomRotation << "\n";
+    outfile.close();
+    std::cout << "\nResults saved." << std::endl;
 }

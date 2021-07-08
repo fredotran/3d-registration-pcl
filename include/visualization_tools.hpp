@@ -245,9 +245,11 @@ void visualizeMultipleMatchingResults(PointCloudPtr inputTrgCloudPtr1,
 /* Method to visualize the comparison between matching results (3 point clouds))*/
 void visualizeMultipleResults(PointCloudPtr referenceCloudPtr1,
                               PointCloudPtr sourceCloudPtr1,
+                              PointCloudPtr customTransformedCloudPtr1,
                               PointCloudPtr transformedCloudPtr1,
                               PointCloudPtr referenceCloudPtr2,
                               PointCloudPtr sourceCloudPtr2,
+                              PointCloudPtr customTransformedCloudPtr2,
                               PointCloudPtr transformedCloudPtr2)
 {
     pcl::visualization::PCLVisualizer viewer("3D Viewer");
@@ -256,23 +258,34 @@ void visualizeMultipleResults(PointCloudPtr referenceCloudPtr1,
     int v2(1);
     viewer.createViewPort(0.0, 0.0, 0.5, 1.0, v1);
     viewer.createViewPort(0.5, 0.0, 1.0, 1.0, v2);
-    //viewer.initCameraParameters();
-    //viewer.setCameraPosition(0, 0, 0, 0, 0, 0);
+
     // Add transformed point cloud to viewer
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> ref_cloud_color_handler1(referenceCloudPtr1, 255, 255, 0);
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> ref_cloud_color_handler1(referenceCloudPtr1, 0, 255, 0);
     pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> src_cloud_color_handler1(sourceCloudPtr1, 255, 0, 0);
     pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tf_cloud_color_handler1(transformedCloudPtr1, 0, 0, 255);
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> ref_cloud_color_handler2(referenceCloudPtr2, 255, 255, 0);
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> cst_cloud_color_handler1(customTransformedCloudPtr1, 135, 206, 235);
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> ref_cloud_color_handler2(referenceCloudPtr2, 0, 255, 0);
     pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> src_cloud_color_handler2(sourceCloudPtr2, 255, 0, 0);
     pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tf_cloud_color_handler2(transformedCloudPtr2, 0, 0, 255);
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> cst_cloud_color_handler2(customTransformedCloudPtr2, 135, 206, 235);
 
     viewer.addPointCloud(referenceCloudPtr1, ref_cloud_color_handler1, "ref cloud v1", v1);
     viewer.addPointCloud(sourceCloudPtr1, src_cloud_color_handler1, "source cloud v1", v1);
+    viewer.addPointCloud(customTransformedCloudPtr1, cst_cloud_color_handler1, "custom transformed cloud v1", v1);
     viewer.addPointCloud<pcl::PointXYZ>(transformedCloudPtr1, tf_cloud_color_handler1, "matched cloud1", v1);
 
     viewer.addPointCloud(referenceCloudPtr2, ref_cloud_color_handler2, "ref cloud v2", v2);
     viewer.addPointCloud(sourceCloudPtr2, src_cloud_color_handler2, "source cloud v2", v2);
+    viewer.addPointCloud(customTransformedCloudPtr2, cst_cloud_color_handler2, "custom transformed cloud v2", v2);
     viewer.addPointCloud<pcl::PointXYZ>(transformedCloudPtr2, tf_cloud_color_handler2, "matched cloud2", v2);
+
+    pcl::PointXYZ o;
+    o.x = 0;
+    o.y = 0;
+    o.z = 0;
+    viewer.addSphere(o, 10, "sphere", 0);
+    viewer.addSphere(o, 10, "sphere2", 1);
+    std::cout << "i only run once" << std::endl;
 
     while (!viewer.wasStopped())
     {

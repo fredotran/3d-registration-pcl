@@ -64,7 +64,7 @@ typedef pcl::FPFHSignature33 LocalDescriptorFPFH;
 typedef pcl::PointCloud<LocalDescriptorFPFH>::Ptr LocalDescriptorFPFHPtr;
 
 typedef std::tuple<std::string, double, std::string, double, double, double, double, double, double, double, double, double, double> tupleParameters;
-typedef std::tuple<PointCloudPtr, PointCloudPtr, PointCloudPtr, PointCloudPtr> tuplePointCloudPtr; 
+typedef std::tuple<PointCloudPtr, PointCloudPtr, PointCloudPtr, PointCloudPtr, PointCloudPtr> tuplePointCloudPtr; 
 typedef std::tuple<double, double, double> tupleOfDouble;
 typedef std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> tupleOfVectorDouble;
 typedef std::vector<pcl::PointXYZ> vectorPointXYZ;

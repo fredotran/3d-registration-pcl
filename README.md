@@ -32,7 +32,7 @@ Steps :
 *What to do ?*
 * You will be able to store your data and the parameters' file to use them in the pipelines, in the `data` folder. 
 * To use a particular point cloud file, you'll need to specify the location address at : `surface_model_data_file` inside the text file.
-* To launch one of the three pipelines : `./[BUILD_FOLDER]/[PIPELINE_NAME] [DATA FOLDER PATH] [PARAMETERS_FILENAME]`  
+* To launch one of the three pipelines (if you are in the `build` folder): `./[BUILD_FOLDER]/[PIPELINE_NAME] [DATA FOLDER PATH] [PARAMETERS_FILENAME]`  
 with PIPELINE_NAME = {harris_pipeline, sift_pipeline, main_registration}.
 
 ## Tools

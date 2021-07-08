@@ -190,7 +190,6 @@ public:
     {
         pcl::HarrisKeypoint3D<pcl::PointNormal, pcl::PointXYZI> harris;
         pcl::PointCloud<pcl::PointXYZI>::Ptr intensityHarrisKeypointsPtr(new pcl::PointCloud<pcl::PointXYZI>);
-        //PointCloudPtr harrisKeypointsPtr(new PointCloud);
         pcl::search::KdTree<pcl::PointNormal>::Ptr treeHarrisKeypoints(new pcl::search::KdTree<pcl::PointNormal>());
         harris.setNonMaxSupression(true);
         harris.setRefine(false);
@@ -364,7 +363,6 @@ public:
         std::cout << "Time of alignment : " << watch.getTimeSeconds() << "sec" << std::endl;
         std::cout << "Calculated transformation\n"
                   << final_transformation << std::endl;
-        // std::cout << errorMetric << std::endl;
         std::cout << "Euclidian fitness score : "
                   << fitness_score << std::endl;
 
@@ -410,7 +408,6 @@ public:
         std::cout << "Time of alignment : " << watch.getTimeSeconds() << "sec" << std::endl;
         std::cout << "Calculated transformation\n"
                   << final_transformation << std::endl;
-        // std::cout << errorMetric << std::endl;
         std::cout << "Euclidian fitness score : "
                   << fitness_score << std::endl;
 
@@ -458,7 +455,6 @@ public:
         std::cout << "Time of alignment : " << watch.getTimeSeconds() << "sec" << std::endl;
         std::cout << "Calculated transformation\n"
                   << final_transformation << std::endl;
-        // std::cout << errorMetric << std::endl;
         std::cout << "Euclidian fitness score : "
                   << fitness_score << std::endl;
 
@@ -590,7 +586,6 @@ Eigen::Matrix4f translationHarrisPipeline(PointCloudPtr sourceCloudPtr, PointClo
     srcIntensityHarrisKeypointsPtr = Harris.computeHarris3DKeypoints(sourceNormalsPtr, SearchRadiusHarris, threshold_harris);
     trgIntensityHarrisKeypointsPtr = Harris.computeHarris3DKeypoints(targetNormalsPtr, SearchRadiusHarris, threshold_harris);
 
-    // visualizeSinglePointCloudForHarris(targetCloudPtr, trgIntensityHarrisKeypointsPtr);
     pcl::PointCloud<pcl::FPFHSignature33>::Ptr sourceFPFHHarris(new pcl::PointCloud<pcl::FPFHSignature33>);
     pcl::PointCloud<pcl::FPFHSignature33>::Ptr targetFPFHHarris(new pcl::PointCloud<pcl::FPFHSignature33>);
     Descriptor FPFHHarris;
@@ -634,7 +629,6 @@ Eigen::Matrix4f rotationHarrisPipeline(PointCloudPtr sourceCloudPtr, PointCloudP
     srcIntensityHarrisKeypointsPtr = Harris.computeHarris3DKeypoints(sourceNormalsPtr, SearchRadiusHarris, threshold_harris);
     trgIntensityHarrisKeypointsPtr = Harris.computeHarris3DKeypoints(targetNormalsPtr, SearchRadiusHarris, threshold_harris);
 
-    // visualizeSinglePointCloudForHarris(targetCloudPtr, trgIntensityHarrisKeypointsPtr);
     pcl::PointCloud<pcl::FPFHSignature33>::Ptr sourceFPFHHarris(new pcl::PointCloud<pcl::FPFHSignature33>);
     pcl::PointCloud<pcl::FPFHSignature33>::Ptr targetFPFHHarris(new pcl::PointCloud<pcl::FPFHSignature33>);
     Descriptor FPFHHarris;
