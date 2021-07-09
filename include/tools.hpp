@@ -5,7 +5,8 @@
 ////////////////////////////////
 
 // saving tools
-void savingResults(std::string &parametersFilename, double siftMRTE, double harrisMRTE,
+void savingResults(std::string &parametersFilename, std::string &pipelineType, double MRTE,
+                   double mtre_x, double mtre_y, double mtre_z,
                    double seedRef, double seedSource, double seedCustomRotation);
 
 // Transformation tools
@@ -23,7 +24,7 @@ Eigen::Affine3f customTranslation(PointCloudPtr sourcePointCloudPtr,
                                   Eigen::Affine3f inputTransformationMatrix,
                                   float trans_x, float trans_y, float trans_z);
 
-// Parameters input
+// Parameters tools
 tupleParameters parametersArray(std::string parametersFilename,
                                 std::vector<std::string> parameters);
 std::vector<std::string> readParameters(std::string &inputFilename);
@@ -33,13 +34,14 @@ float randomAngles(float angleMin, float angleMax);
 double randomizeDoubleUniform(double *seed, double min, double max);
 std::array<double, 2> randomizeCoordinate(double *seed, double boundariesX[2], double boundariesY[2], double bufferX, double bufferY);
 std::array<double, 4> randomizeSourceCutout(double *seed, double refModelBoundariesX[2], double refModelBoundariesY[2],
-                                            double sourceWidth, double sourceHeight, double xUncertainty, double yUncertainty);
+                                            double sourceWidth, double sourceHeight);
+
+
+// Compute point clouds and processing                                            
 PointCloudPtr cropPointCloud(PointCloudPtr cloudPtr,
                              PointCloudPtr cloudOutPtr,
-                             double randomized_x_min, double randomized_x_max,
-                             double randomized_y_min, double randomized_y_max);
-
-// Compute point clouds
+                             double xMin, double xMax,
+                             double yMin, double yMax);
 PointCloudPtr computeReferenceCloud(PointCloudPtr surfaceModelCloudPtr,
                                     double sourceWidth, double sourceHeight,
                                     double x_uncertainty, double y_uncertainty);
@@ -48,6 +50,10 @@ PointCloudPtr computeSourceCloud(PointCloudPtr targetCloudPtr,
                                  double sourceWidth, double sourceHeight,
                                  double x_uncertainty, double y_uncertainty);
 
+// full pipelines
+tuplePointCloudPtr fullPipelineSift(tupleParameters parametersList, double seedRef, double seedSource, double seedCustomRotation);
+tuplePointCloudPtr fullPipelineHarris(tupleParameters parametersList, double seedRef, double seedSource, double seedCustomRotation);
+
 /*******************************************************************************************************************************************************/
 /*******************************************************************************************************************************************************/
 /*******************************************************************************************************************************************************/
@@ -55,6 +61,37 @@ PointCloudPtr computeSourceCloud(PointCloudPtr targetCloudPtr,
 ////////////////////////////////
 //////////// METHODS ///////////
 ////////////////////////////////
+
+/* Saving results into text files */
+void savingResults(std::string &parametersFilename, std::string &pipelineType, double MRTE,
+                   double mtre_x, double mtre_y, double mtre_z,
+                   double seedRef, double seedSource, double seedCustomRotation)
+{
+    // Saving the results
+    std::ofstream outfile;
+    std::string savedFilename = "../results/" + parametersFilename + "_results";
+
+    outfile.open(savedFilename, std::ios_base::app);
+    outfile << pipelineType + "MRTE : "
+            << MRTE << "\n";
+    outfile << pipelineType + "Bias error on x : "
+            << mtre_x << "\n";
+    outfile << pipelineType + "Bias error on y : "
+            << mtre_y << "\n";
+    outfile << pipelineType + "Bias error on z : "
+            << mtre_z << "\n";
+    outfile << "[SEED] Reference cutout : "
+            << seedRef << "\n";
+    outfile << "[SEED] Source cutout : "
+            << seedSource << "\n";
+    outfile << "[SEED] Custom rotation : "
+            << seedCustomRotation << "\n";
+    outfile << "\n";
+    outfile << "-----------------------------------------";
+    outfile << "-----------------------------------------";
+    std::cout << "\nResults saved." << std::endl;
+    outfile.close();
+}
 
 /* Method to perform a custom transformation on an input point cloud and returns a resulted point cloud */
 PointCloudPtr correctedPointCloud(PointCloudPtr sourcePointCloudPtr,
@@ -177,9 +214,9 @@ std::vector<std::string> readParameters(std::string &inputFilename)
     std::string titles = "", parameters = "";
 
     if (inFile.is_open())
-        std::cout << "File has been opened" << std::endl;
+        std::cout << "\nFile has been opened" << std::endl;
     else
-        std::cout << "NO FILE HAS BEEN OPENED" << std::endl;
+        std::cout << "NO PARAMETER FILE HAS BEEN OPENED" << std::endl;
 
     while (!inFile.eof())
     {
@@ -249,17 +286,26 @@ std::array<double, 2> randomizeCoordinate(double *seed, double boundariesX[2], d
 
 /* Returns randomized rectangular (xMin, xMax, yMin, yMax) cut-out boundaries to be used for reference point cloud extraction 
 from surface model point cloud(input: surface model data boundaries, source_width, 
-source_height, x_uncertainty, y_uncertainty; output: reference PC centroid x & y, reference_width, reference_height) */
+source_height, x_uncertainty, y_uncertainty; output: reference PC x/y limits) */
 std::array<double, 4> randomizeReferenceCutout(double *seed, double surfaceModelBoundariesX[2], double surfaceModelBoundariesY[2],
                                                double sourceWidth, double sourceHeight, double xUncertainty, double yUncertainty)
 {
     // compute width and height of reference point cloud
-    double refWidth = sourceWidth + 2 * xUncertainty;
-    double refHeight = sourceHeight + 2 * yUncertainty;
-    double refSize = std::max(refWidth, refHeight);
+    double width = sourceWidth + 2 * xUncertainty;
+    double height = sourceHeight + 2 * yUncertainty;
+    // width and height computed as worst case, since we assume that yaw rotation of source cloud is unknown
+    double refSize = std::sqrt(width * width + height * height);
+
+    // verify that reference fits in surface model
+    double surfaceModelWidth = surfaceModelBoundariesX[1] - surfaceModelBoundariesX[0];
+    double surfaceModelHeight = surfaceModelBoundariesY[1] - surfaceModelBoundariesY[0];
+    std::cout << "\nsurfaceModelWidth/surfaceModelHeight: " << surfaceModelWidth << "/" << surfaceModelHeight << endl;
+    std::cout << "Reference point cloud height=width: " << refSize << endl;
+    assert(refSize < surfaceModelWidth * 1.01);
+    assert(refSize < surfaceModelHeight * 1.01);
 
     // randomize reference point cloud centroid
-    std::array<double, 2> centroid = randomizeCoordinate(seed, surfaceModelBoundariesX, surfaceModelBoundariesY, refSize * 0.5, refSize * 0.5);
+    std::array<double, 2> centroid = randomizeCoordinate(seed, surfaceModelBoundariesX, surfaceModelBoundariesY, 0.5 * refSize, 0.5 * refSize);
 
     // compute reference point cloud boundaries
     double xMin = centroid[0] - refSize * 0.5;
@@ -274,12 +320,19 @@ std::array<double, 4> randomizeReferenceCutout(double *seed, double surfaceModel
 /* Returns randomized rectangular (xMin, xMax, yMin, yMax) cut-out boundaries to be used for source point cloud extraction
 from reference point cloud */
 std::array<double, 4> randomizeSourceCutout(double *seed, double refModelBoundariesX[2], double refModelBoundariesY[2],
-                                            double sourceWidth, double sourceHeight, double xUncertainty, double yUncertainty)
+                                            double sourceWidth, double sourceHeight)
 {
+    // buffer computed as worst case, since we assume that yaw rotation of source cloud is unknown
+    double diagonal = std::sqrt((sourceWidth * sourceWidth + sourceHeight * sourceHeight));
+
+    // verify that source fits in reference point cloud
+    double refModelWidth = refModelBoundariesX[1] - refModelBoundariesX[0];
+    double refModelHeight = refModelBoundariesY[1] - refModelBoundariesY[0];
+    assert(diagonal < refModelWidth * 1.01);
+    assert(diagonal < refModelHeight * 1.01);
+
     // randomize source centroid
-    double xBuffer = xUncertainty + (0.5 * sourceWidth);
-    double yBuffer = yUncertainty + (0.5 * sourceHeight);
-    double buffer = std::max(xBuffer, yBuffer);
+    double buffer = 0.5 * diagonal;
     std::array<double, 2> centroid = randomizeCoordinate(seed, refModelBoundariesX, refModelBoundariesY, buffer, buffer);
 
     // compute reference point cloud boundaries
@@ -292,55 +345,36 @@ std::array<double, 4> randomizeSourceCutout(double *seed, double refModelBoundar
     return boundaries;
 }
 
-/* Returns the cropped point cloud based on the dimensions of the input cloud*/
+/* Returns the cropped point cloud based on the dimensions of the input cloud and specification of x/y cutout limits */
 PointCloudPtr cropPointCloud(PointCloudPtr cloudPtr,
                              PointCloudPtr cloudOutPtr,
-                             double randomized_x_min, double randomized_x_max,
-                             double randomized_y_min, double randomized_y_max)
+                             double xMin, double xMax,
+                             double yMin, double yMax)
 {
     // GetMinMax of the input point cloud
     pcl::PointXYZ ref_min_pt, ref_max_pt;
     pcl::getMinMax3D(*cloudPtr, ref_min_pt, ref_max_pt);
-    double xBoundariesRef[2] = {ref_min_pt.x, ref_max_pt.x};
-    double yBoundariesRef[2] = {ref_min_pt.y, ref_max_pt.y};
     double zBoundariesRef[2] = {ref_min_pt.z, ref_max_pt.z};
-    // Get the local boundaries
-    double local_boundaries_x = abs(xBoundariesRef[1] - xBoundariesRef[0]);
-    double local_boundaries_y = abs(yBoundariesRef[1] - yBoundariesRef[0]);
-    double local_boundaries_z = abs(zBoundariesRef[1] - zBoundariesRef[0]);
-    std::cout << "Global minimum dimensions : " << xBoundariesRef[0] << " " << yBoundariesRef[0] << " " << zBoundariesRef[0] << "\n";
-    std::cout << "Global maximum dimensions : " << xBoundariesRef[1] << " " << yBoundariesRef[1] << " " << zBoundariesRef[1] << "\n";
-    std::cout << "Local box dimensions (before cropping): x = " << local_boundaries_x << ", y = " << local_boundaries_y << ", z = " << local_boundaries_z << endl;
 
     // Min (left)
-    double croppingCubeMin_x = randomized_x_min; //+ x_boundaries_min;
-    double croppingCubeMin_y = randomized_y_min; //+ y_boundaries_min;
-    Eigen::Vector4f croppingCubeMinPoints;
-    croppingCubeMinPoints[0] = croppingCubeMin_x; // x axis
-    croppingCubeMinPoints[1] = croppingCubeMin_y; // y axis
-    croppingCubeMinPoints[2] = zBoundariesRef[0]; // z axis
-    croppingCubeMinPoints[3] = 1.0;               // z axis
+    Eigen::Vector4f minPoints;
+    minPoints[0] = xMin;              // x axis
+    minPoints[1] = yMin;              // y axis
+    minPoints[2] = zBoundariesRef[0]; // z axis
+    minPoints[3] = 1.0;               // z axis
 
     // Max (right)
-    double croppingCubeMax_x = randomized_x_max;
-    double croppingCubeMax_y = randomized_y_max;
-    Eigen::Vector4f croppingCubeMaxPoints;
-    croppingCubeMaxPoints[0] = croppingCubeMax_x; // x axis
-    croppingCubeMaxPoints[1] = croppingCubeMax_y; // y axis
-    croppingCubeMaxPoints[2] = zBoundariesRef[1]; // z axis
-    croppingCubeMaxPoints[3] = 1.0;               // z axis
-
-    // Display dimensions after cropping
-    double newLocal_x = abs(randomized_x_max - randomized_x_min);
-    double newLocal_y = abs(randomized_y_max - randomized_y_min);
-    double newLocal_z = local_boundaries_z;
-    std::cout << "Local box dimensions (after cropping): x = " << newLocal_x << ", y = " << newLocal_y << ", z = " << newLocal_z << endl;
+    Eigen::Vector4f maxPoints;
+    maxPoints[0] = xMax;              // x axis
+    maxPoints[1] = yMax;              // y axis
+    maxPoints[2] = zBoundariesRef[1]; // z axis
+    maxPoints[3] = 1.0;               // z axis
 
     // crop point cloud
     pcl::CropBox<PointXYZ> cropFilter;
     cropFilter.setInputCloud(cloudPtr);
-    cropFilter.setMin(croppingCubeMinPoints);
-    cropFilter.setMax(croppingCubeMaxPoints);
+    cropFilter.setMin(minPoints);
+    cropFilter.setMax(maxPoints);
     cropFilter.filter(*cloudOutPtr);
 
     return cloudOutPtr;
@@ -398,8 +432,7 @@ PointCloudPtr computeSourceCloud(PointCloudPtr targetCloudPtr, double seed,
     // Compute source data
     std::array<double, 4> coordSourceRandomized;
     coordSourceRandomized = randomizeSourceCutout(&seed, xBoundaries, yBoundaries,
-                                                  sourceWidth, sourceHeight,
-                                                  x_uncertainty, y_uncertainty);
+                                                  sourceWidth, sourceHeight);
 
     double RandomizedX_min_source = coordSourceRandomized[0];
     double RandomizedX_max_source = coordSourceRandomized[1];
@@ -414,8 +447,8 @@ PointCloudPtr computeSourceCloud(PointCloudPtr targetCloudPtr, double seed,
     return sourceCloudPtr;
 }
 
-/* Full pipeline to run (SIFT + HARRIS) and compare */
-tuplePointCloudPtr fullPipeline(tupleParameters parametersList, double seedRef, double seedSource, double seedCustomRotation)
+//Full pipeline to run (SIFT)
+tuplePointCloudPtr fullPipelineSift(tupleParameters parametersList, double seedRef, double seedSource, double seedCustomRotation)
 {
     // Extract values from tuple
     std::string pipelineType, referenceDataFilename;
@@ -426,10 +459,6 @@ tuplePointCloudPtr fullPipeline(tupleParameters parametersList, double seedRef, 
     std::tie(pipelineType, numIterPipeline, referenceDataFilename,
              x_uncertainty, y_uncertainty, sourceWidth, sourceHeight,
              x_angle_min, x_angle_max, y_angle_min, y_angle_max, z_angle_min, z_angle_max) = parametersList;
-
-    /*******************************************************/
-    /***************** COMPUTE POINT CLOUDS ****************/
-    /*******************************************************/
 
     PointCloudPtr sourceCloudPtr(new PointCloud);
     PointCloudPtr targetCloudPtr(new PointCloud);
@@ -455,14 +484,9 @@ tuplePointCloudPtr fullPipeline(tupleParameters parametersList, double seedRef, 
     randomAngleOnX = randomizeDoubleUniform(&seedCustomRotation, x_angle_min, x_angle_max);
     randomAngleOnY = randomizeDoubleUniform(&seedCustomRotation, y_angle_min, y_angle_max);
     randomAngleOnZ = randomizeDoubleUniform(&seedCustomRotation, z_angle_min, z_angle_max);
-
-    std::cout << "angle on x : " << randomAngleOnX << std::endl;
+    std::cout << "\nangle on x : " << randomAngleOnX << std::endl;
     std::cout << "angle on y : " << randomAngleOnY << std::endl;
     std::cout << "angle on z : " << randomAngleOnZ << std::endl;
-
-    /*******************************************************/
-    /******************* CUSTOM ROTATION *******************/
-    /*******************************************************/
 
     Eigen::Vector4f centroid(Eigen::Vector4f::Zero());
     Eigen::Vector4f origin_centroid(Eigen::Vector4f::Zero());
@@ -499,27 +523,99 @@ tuplePointCloudPtr fullPipeline(tupleParameters parametersList, double seedRef, 
     PointCloud &sourceTransformedCloud = *sourceTransformedCloudPtr;
     PointCloud &targetCloud = *targetCloudPtr;
 
-    /*******************************************************/
-    /******************** SIFT PIPELINE ********************/
-    /*******************************************************/
-
+    // sift
     Eigen::Matrix4f rotation_mat_sift;
     rotation_mat_sift = rotationSiftPipeline(sourceTransformedCloudPtr, targetCloudPtr);
     PointCloudPtr finalTransformedCloudPtr(new PointCloud);
     PointCloud &finalTransformedCloud = *finalTransformedCloudPtr;
     pcl::transformPointCloud(sourceTransformedCloud, finalTransformedCloud, rotation_mat_sift);
 
-    /*******************************************************/
-    /******************* HARRIS PIPELINE *******************/
-    /*******************************************************/
+    return {sourceCloudPtr, targetCloudPtr, sourceTransformedCloudPtr, finalTransformedCloudPtr};
+}
+
+//Full pipeline to run (harris)
+tuplePointCloudPtr fullPipelineHarris(tupleParameters parametersList, double seedRef, double seedSource, double seedCustomRotation)
+{
+    // Extract values from tuple
+    std::string pipelineType, referenceDataFilename;
+    double numIterPipeline, x_uncertainty, y_uncertainty, sourceWidth, sourceHeight;
+    double x_angle_min, x_angle_max, y_angle_min, y_angle_max, z_angle_min, z_angle_max;
+
+    // Method to unzip multiple returns value from parametersArray
+    std::tie(pipelineType, numIterPipeline, referenceDataFilename,
+             x_uncertainty, y_uncertainty, sourceWidth, sourceHeight,
+             x_angle_min, x_angle_max, y_angle_min, y_angle_max, z_angle_min, z_angle_max) = parametersList;
+
+    PointCloudPtr sourceCloudPtr(new PointCloud);
+    PointCloudPtr targetCloudPtr(new PointCloud);
+    PointCloudPtr surfaceModelCloudPtr(new PointCloud);
+    PointCloudPtr outPointCloudPtr(new PointCloud);
+    PointCloudPtr croppedPointCloudPtr(new PointCloud);
+
+    // Reading parameters txt file
+    std::string modelSurfaceFileName = referenceDataFilename;
+    std::cout << "Reading " << modelSurfaceFileName << std::endl;
+    surfaceModelCloudPtr = loadingCloud(referenceDataFilename);
+
+    // Computing reference and source cloud
+    targetCloudPtr = computeReferenceCloud(surfaceModelCloudPtr, seedRef,
+                                           sourceWidth, sourceHeight,
+                                           x_uncertainty, y_uncertainty);
+    sourceCloudPtr = computeSourceCloud(targetCloudPtr, seedSource,
+                                        sourceWidth, sourceHeight,
+                                        x_uncertainty, y_uncertainty);
+
+    // Randomization of angles
+    double randomAngleOnX, randomAngleOnY, randomAngleOnZ;
+    randomAngleOnX = randomizeDoubleUniform(&seedCustomRotation, x_angle_min, x_angle_max);
+    randomAngleOnY = randomizeDoubleUniform(&seedCustomRotation, y_angle_min, y_angle_max);
+    randomAngleOnZ = randomizeDoubleUniform(&seedCustomRotation, z_angle_min, z_angle_max);
+    std::cout << "\nangle on x : " << randomAngleOnX << std::endl;
+    std::cout << "angle on y : " << randomAngleOnY << std::endl;
+    std::cout << "angle on z : " << randomAngleOnZ << std::endl;
+
+    Eigen::Vector4f centroid(Eigen::Vector4f::Zero());
+    Eigen::Vector4f origin_centroid(Eigen::Vector4f::Zero());
+    Eigen::Vector4f new_centroid(Eigen::Vector4f::Zero());
+    Eigen::Affine3f first_transform = Eigen::Affine3f::Identity();
+    Eigen::Affine3f second_transform = Eigen::Affine3f::Identity();
+    PointCloudPtr newPtCloudPtr(new PointCloud);
+    PointCloudPtr correctPtCloudPtr(new PointCloud);
+    PointCloudPtr sourceTransformedCloudPtr(new PointCloud);
+
+    copyPointCloud(*sourceCloudPtr, *newPtCloudPtr);
+    float trans_x = 0, trans_y = 0, trans_z = 0;
+    first_transform = customRotation(newPtCloudPtr,
+                                     centroid,
+                                     origin_centroid,
+                                     new_centroid,
+                                     randomAngleOnX, randomAngleOnY, randomAngleOnZ);
+
+    std::cout << "\nFirst transformation : \n"
+              << first_transform.matrix() << std::endl;
+    pcl::transformPointCloud(*newPtCloudPtr, *correctPtCloudPtr, first_transform);
+    second_transform = customTranslation(correctPtCloudPtr,
+                                         second_transform,
+                                         trans_x, trans_y, trans_z);
+    pcl::transformPointCloud(*correctPtCloudPtr, *sourceTransformedCloudPtr, second_transform);
+
+    std::cout << "\nSecond transformation : \n"
+              << second_transform.matrix() << std::endl;
+    Eigen::Affine3f final_transform = first_transform * second_transform;
+
+    std::cout << "\nFinal transformation : \n"
+              << final_transform.matrix() << std::endl;
+
+    PointCloud &sourceTransformedCloud = *sourceTransformedCloudPtr;
+    PointCloud &targetCloud = *targetCloudPtr;
 
     Eigen::Matrix4f rotation_mat_harris;
     rotation_mat_harris = rotationHarrisPipeline(sourceTransformedCloudPtr, targetCloudPtr);
-    PointCloudPtr finalTransformedCloudPtr2(new PointCloud);
-    PointCloud &finalTransformedCloud2 = *finalTransformedCloudPtr2;
-    pcl::transformPointCloud(sourceTransformedCloud, finalTransformedCloud2, rotation_mat_harris);
+    PointCloudPtr finalTransformedCloudPtr(new PointCloud);
+    PointCloud &finalTransformedCloud = *finalTransformedCloudPtr;
+    pcl::transformPointCloud(sourceTransformedCloud, finalTransformedCloud, rotation_mat_harris);
 
-    return {sourceCloudPtr, targetCloudPtr, sourceTransformedCloudPtr, finalTransformedCloudPtr, finalTransformedCloudPtr2};
+    return {sourceCloudPtr, targetCloudPtr, sourceTransformedCloudPtr, finalTransformedCloudPtr};
 }
 
 /* get the distance between points */
@@ -618,7 +714,7 @@ double meanTargetRegistrationError(PointCloudPtr srcPointCloudPtr, PointCloudPtr
     return average_norm;
 }
 
-/* FUll registration pipeline including the errors calculation */
+/* Full registration pipeline including the errors calculation */
 void fullRegistration(std::string &fullParametersFilename,
                       std::string &parametersFileName,
                       double &seedRef,
@@ -632,6 +728,7 @@ void fullRegistration(std::string &fullParametersFilename,
     parameters = readParameters(fullParametersFilename);
     // Create an array containing all the elements from the text file
     parametersList = parametersArray(fullParametersFilename, parameters);
+
     // Extract values from tuple
     std::string pipelineType, referenceDataFilename;
     double numIterPipeline, x_uncertainty, y_uncertainty, sourceWidth, sourceHeight;
@@ -642,87 +739,105 @@ void fullRegistration(std::string &fullParametersFilename,
              x_uncertainty, y_uncertainty, sourceWidth, sourceHeight,
              x_angle_min, x_angle_max, y_angle_min, y_angle_max, z_angle_min, z_angle_max) = parametersList;
 
-    // Run the full pipeline with different seeds
-    tuplePointCloudPtr PointCloudsPtrOutput;
-    PointCloudPtr sourceCloudPtr(new PointCloud);
-    PointCloudPtr targetCloudPtr(new PointCloud);
-    PointCloudPtr sourceTransformedCloudPtr(new PointCloud);
-    PointCloudPtr transformedCloudPtr1(new PointCloud);
-    PointCloudPtr transformedCloudPtr2(new PointCloud);
+    // Registration pipeline choice
 
-    // Registration pipeline with SIFT & Harris
-    //double seedRef(1.0), seedSource(1.0), seedCustomRotation(1.0);
-    PointCloudsPtrOutput = fullPipeline(parametersList, seedRef, seedSource, seedCustomRotation);
-    std::tie(sourceCloudPtr, targetCloudPtr, sourceTransformedCloudPtr, transformedCloudPtr1, transformedCloudPtr2) = PointCloudsPtrOutput;
+    // SIFT
+    if (pipelineType == "sift")
+    {
+        // Run the full pipeline with different seeds
+        tuplePointCloudPtr PointCloudsPtrOutput;
+        PointCloudPtr sourceCloudPtr(new PointCloud);
+        PointCloudPtr targetCloudPtr(new PointCloud);
+        PointCloudPtr sourceTransformedCloudPtr(new PointCloud);
+        PointCloudPtr transformedCloudPtr(new PointCloud);
 
-    // Calculate the mean target registration error
-    std::cout << "\n-----------------------------------------------------------------------------------------------" << std::endl;
-    std::cout << "--------------------------------- Mean Target Registration Error --------------------------------" << std::endl;
-    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
-    double euclidean_distance_sift = meanTargetRegistrationError(sourceCloudPtr, transformedCloudPtr1);
-    double euclidean_distance_harris = meanTargetRegistrationError(sourceCloudPtr, transformedCloudPtr2);
-    std::cout << "\n[SIFT] Mean Target Registration Error between original source and transformed cloud: " << euclidean_distance_sift << std::endl;
-    std::cout << "[HARRIS] Mean Target Registration Error between original source and transformed cloud: " << euclidean_distance_harris << std::endl;
+        PointCloudsPtrOutput = fullPipelineSift(parametersList, seedRef, seedSource, seedCustomRotation);
+        std::tie(sourceCloudPtr, targetCloudPtr, sourceTransformedCloudPtr, transformedCloudPtr) = PointCloudsPtrOutput;
+        PointCloud &sourceCloud = *sourceCloudPtr;
 
-    // Calculate the Registration error bias
-    PointCloud &sourceCloud = *sourceCloudPtr;
-    tupleOfDouble vectorMTRESift;
-    tupleOfDouble vectorMTREHarris;
-    double mtre_x_sift, mtre_y_sift, mtre_z_sift;
-    double mtre_x_harris, mtre_y_harris, mtre_z_harris;
+        // Calculate the mean target registration error
+        std::cout << "\n-----------------------------------------------------------------------------------------------" << std::endl;
+        std::cout << "--------------------------------- Mean Target Registration Error --------------------------------" << std::endl;
+        std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+        double euclidean_distance_sift = meanTargetRegistrationError(sourceCloudPtr, transformedCloudPtr);
+        std::cout << "\n[SIFT] Mean Target Registration Error between original source and transformed cloud: " << euclidean_distance_sift << std::endl;
 
-    vectorMTRESift = registrationErrorBias(sourceCloudPtr, transformedCloudPtr1);
-    vectorMTREHarris = registrationErrorBias(sourceCloudPtr, transformedCloudPtr2);
-    std::tie(mtre_x_sift, mtre_y_sift, mtre_z_sift) = vectorMTRESift;
-    std::tie(mtre_x_harris, mtre_y_harris, mtre_z_harris) = vectorMTREHarris;
+        // Calculate the Registration error bias
+        tupleOfDouble vectorMTRESift;
+        double mtre_x_sift, mtre_y_sift, mtre_z_sift;
+        vectorMTRESift = registrationErrorBias(sourceCloudPtr, transformedCloudPtr);
+        std::tie(mtre_x_sift, mtre_y_sift, mtre_z_sift) = vectorMTRESift;
 
-    std::cout << "\n-----------------------------------------------------------------------------------------------" << std::endl;
-    std::cout << "------------------------------------ Registration error bias ------------------------------------" << std::endl;
-    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
-    std::cout << "\n[SIFT] Registration error bias on x between original source and transformed cloud: " << mtre_x_sift << std::endl;
-    std::cout << "[SIFT] Registration error bias on y between original source and transformed cloud: " << mtre_y_sift << std::endl;
-    std::cout << "[SIFT] Registration error bias on z between original source and transformed cloud: " << mtre_z_sift << std::endl;
-    std::cout << "\n[HARRIS] Registration error bias on x between original source and transformed cloud: " << mtre_x_harris << std::endl;
-    std::cout << "[HARRIS] Registration error bias on y between original source and transformed cloud: " << mtre_y_harris << std::endl;
-    std::cout << "[HARRIS] Registration error bias on z between original source and transformed cloud: " << mtre_z_harris << std::endl;
+        std::cout << "\n-----------------------------------------------------------------------------------------------" << std::endl;
+        std::cout << "------------------------------------ Registration error bias ------------------------------------" << std::endl;
+        std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+        std::cout << "\n[SIFT] Registration error bias on x between original source and transformed cloud: " << mtre_x_sift << std::endl;
+        std::cout << "[SIFT] Registration error bias on y between original source and transformed cloud: " << mtre_y_sift << std::endl;
+        std::cout << "[SIFT] Registration error bias on z between original source and transformed cloud: " << mtre_z_sift << std::endl;
 
-    savingResults(parametersFileName, euclidean_distance_sift, euclidean_distance_harris,
-                  seedRef, seedSource, seedCustomRotation);
+        savingResults(parametersFileName, pipelineType, euclidean_distance_sift,
+                      mtre_x_sift, mtre_y_sift, mtre_z_sift,
+                      seedRef, seedSource, seedCustomRotation);
 
-    std::cout << "\nGreen : Reference point cloud " << std::endl;
-    std::cout << "Red : Source point cloud " << std::endl;
-    std::cout << "Light blue : Custom transformed point cloud " << std::endl;
-    std::cout << "Blue : Point cloud obtained through alignment proccess " << std::endl;
-    // Visualization
-    //visualizeCroppedResults(targetCloudPtr, sourceCloudPtr, transformedCloudPtr1);
-    visualizeMultipleResults(targetCloudPtr,
-                             sourceCloudPtr,
-                             sourceTransformedCloudPtr,
-                             transformedCloudPtr1,
-                             targetCloudPtr,
-                             sourceCloudPtr,
-                             sourceTransformedCloudPtr,
-                             transformedCloudPtr2);
-}
+        std::cout << "\nGreen : Reference point cloud " << std::endl;
+        std::cout << "Red : Source point cloud " << std::endl;
+        std::cout << "Light blue : Custom transformed point cloud " << std::endl;
+        std::cout << "Blue : Point cloud obtained through alignment proccess " << std::endl;
+        /*
+        visualizeResults(targetCloudPtr,
+                         sourceCloudPtr,
+                         sourceTransformedCloudPtr,
+                         transformedCloudPtr);*/
+    }
 
-void savingResults(std::string &parametersFilename, double siftMRTE, double harrisMRTE,
-                   double seedRef, double seedSource, double seedCustomRotation)
-{
-    // Saving the results
-    std::ofstream outfile;
-    std::string savedFilename = "../results/" + parametersFilename + "_results";
+    // HARRIS
+    if (pipelineType == "harris")
+    {
+        // Run the full pipeline with different seeds
+        tuplePointCloudPtr PointCloudsPtrOutput;
+        PointCloudPtr sourceCloudPtr(new PointCloud);
+        PointCloudPtr targetCloudPtr(new PointCloud);
+        PointCloudPtr sourceTransformedCloudPtr(new PointCloud);
+        PointCloudPtr transformedCloudPtr(new PointCloud);
 
-    outfile.open(savedFilename, std::ios_base::app);
-    outfile << "[SIFT] MRTE : "
-            << siftMRTE << "\n";
-    outfile << "[HARRIS] MRTE : "
-            << harrisMRTE << "\n";
-    outfile << "[SEED] Reference cutout : "
-            << seedRef << "\n";
-    outfile << "[SEED] Source cutout : "
-            << seedSource << "\n";
-    outfile << "[SEED] Custom rotation : "
-            << seedCustomRotation << "\n";
-    outfile.close();
-    std::cout << "\nResults saved." << std::endl;
+        PointCloudsPtrOutput = fullPipelineHarris(parametersList, seedRef, seedSource, seedCustomRotation);
+        std::tie(sourceCloudPtr, targetCloudPtr, sourceTransformedCloudPtr, transformedCloudPtr) = PointCloudsPtrOutput;
+        PointCloud &sourceCloud = *sourceCloudPtr;
+
+        // Calculate the mean target registration error
+
+        std::cout << "\n-----------------------------------------------------------------------------------------------" << std::endl;
+        std::cout << "--------------------------------- Mean Target Registration Error --------------------------------" << std::endl;
+        std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+        double euclidean_distance_harris = meanTargetRegistrationError(sourceCloudPtr, transformedCloudPtr);
+        std::cout << "[HARRIS] Mean Target Registration Error between original source and transformed cloud: " << euclidean_distance_harris << std::endl;
+
+        // Calculate the Registration error bias
+        tupleOfDouble vectorMTREHarris;
+        double mtre_x_harris, mtre_y_harris, mtre_z_harris;
+        vectorMTREHarris = registrationErrorBias(sourceCloudPtr, transformedCloudPtr);
+        std::tie(mtre_x_harris, mtre_y_harris, mtre_z_harris) = vectorMTREHarris;
+
+        std::cout << "\n-----------------------------------------------------------------------------------------------" << std::endl;
+        std::cout << "------------------------------------ Registration error bias ------------------------------------" << std::endl;
+        std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+        std::cout << "\n[HARRIS] Registration error bias on x between original source and transformed cloud: " << mtre_x_harris << std::endl;
+        std::cout << "[HARRIS] Registration error bias on y between original source and transformed cloud: " << mtre_y_harris << std::endl;
+        std::cout << "[HARRIS] Registration error bias on z between original source and transformed cloud: " << mtre_z_harris << std::endl;
+
+        savingResults(parametersFileName, pipelineType, euclidean_distance_harris,
+                      mtre_x_harris, mtre_y_harris, mtre_z_harris,
+                      seedRef, seedSource, seedCustomRotation);
+
+        /*
+        std::cout << "\nGreen : Reference point cloud " << std::endl;
+        std::cout << "Red : Source point cloud " << std::endl;
+        std::cout << "Light blue : Custom transformed point cloud " << std::endl;
+        std::cout << "Blue : Point cloud obtained through alignment proccess " << std::endl;*/
+        /*
+        visualizeResults(targetCloudPtr,
+                         sourceCloudPtr,
+                         sourceTransformedCloudPtr,
+                         transformedCloudPtr);*/
+    }
 }

@@ -1,1 +1,0 @@
-[SIFT] MRTE : 34.8615[SIFT] MRTE : 173.211[HARRIS] MRTE : 114.261[SEED] Reference cutout : 1[SEED] Source cutout : 1[SEED] Custom rotation : 1[SIFT] MRTE : 173.211[HARRIS] MRTE : 114.261[SEED] Reference cutout : 1[SEED] Source cutout : 1[SEED] Custom rotation : 1
