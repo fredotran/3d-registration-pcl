@@ -10,7 +10,7 @@
 ## Building and compiling the project on Linux (Ubuntu) using CMake
 
 * Downloading the project files using this in your command console :  
-`git clone https://github.com/fredotran/autonav-pcl-cpp.git`
+`git clone https://github.com/fredotran/3d-registration-pcl.git`
 * Create a `build` folder, go to the folder by using : `cd build`.
 * Use : `cmake ..` cmd line to build and generate the dependencies of the project into the `build` folder.
 * Use : `make` to compile the project each time you did modifications (be sure to be in the `build` folder).
