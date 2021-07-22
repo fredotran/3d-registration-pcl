@@ -91,12 +91,11 @@ void visualizeCroppedResults(PointCloudPtr inputCloudPtr,
     o.y = 0;
     o.z = 0;
     viewer.addSphere(o, 10, "sphere", 0);
-    std::cout << "i only run once" << std::endl;
 
     while (!viewer.wasStopped())
     {
         viewer.spinOnce();
-        pcl_sleep(0.01);
+        pcl_sleep(0.05);
     }
 }
 
@@ -180,15 +179,14 @@ void visualizeMatchingResults(PointCloudPtr inputCloudPtr,
     // Add transformed point cloud to viewer
     pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tf_cloud_color_handler1(inputCloudPtr, 255, 0, 0);
     viewer.addPointCloud<pcl::PointXYZ>(inputCloudPtr, tf_cloud_color_handler1, "initial aligned cloud1");
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tf_cloud_color_handler2(transformedCloudPtr, 0, 255, 0);
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tf_cloud_color_handler2(transformedCloudPtr, 0, 0, 255);
     viewer.addPointCloud<pcl::PointXYZ>(transformedCloudPtr, tf_cloud_color_handler2, "initial aligned cloud2");
 
     pcl::PointXYZ o;
     o.x = 0;
     o.y = 0;
     o.z = 0;
-    viewer.addSphere(o, 10, "sphere", 0);
-    std::cout << "i only run once" << std::endl;
+    viewer.addSphere(o, 1, "sphere", 0);
 
     while (!viewer.wasStopped())
     {
@@ -291,7 +289,6 @@ void visualizeResults(PointCloudPtr referenceCloudPtr,
     o.y = 0;
     o.z = 0;
     viewer.addSphere(o, 10, "sphere", 0);
-    std::cout << "\ni only run once" << std::endl;
 
     while (!viewer.wasStopped())
     {
@@ -343,7 +340,6 @@ void visualizeMultipleResults(PointCloudPtr referenceCloudPtr1,
     o.z = 0;
     viewer.addSphere(o, 10, "sphere", 0);
     viewer.addSphere(o, 10, "sphere2", 1);
-    std::cout << "i only run once" << std::endl;
 
     while (!viewer.wasStopped())
     {

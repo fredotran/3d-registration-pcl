@@ -1,0 +1,6 @@
+Pipeline,MRTE,Bias error on x,Bias error on y,Bias error on z,Custom angle on x,Custom angle on y,Custom angle on z,[SEED] Reference cutout,[SEED] Source cutout,[SEED] Custom rotation,MapString,mapDouble
+harris,29.2581,-23.6752,-15.6458,1.70296,0,0,-154.539,2.37913,2.4913,3.513
+harris,37.3569,29.9297,18.1824,8.84268,0,0,161.091,4.75826,4.8826,6.826
+harris,80.6935,-9.95872,-40.6692,1.02576,0,0,-72.446,7.13739,7.2739,10.139
+harris,8.83227,-1.7713,0.501484,-1.03031,0,0,38.6429,9.51652,9.6652,13.452
+harris,108.377,11.7965,61.4954,1.98469,0,0,-62.4038,11.8956,12.0565,16.765
