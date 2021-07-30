@@ -1,10 +1,12 @@
-#include "visualization_tools.hpp"
-#include "file_io.hpp"
-#include "randomization.hpp"
+//#include "visualization_tools.hpp"
+#include "registration.hpp"
 
 ////////////////////////////////
 ////////// PROTOTYPES //////////
 ////////////////////////////////
+
+// reading pointCloud
+PointCloudPtr loadingCloud(std::string fileName);
 
 // Transformation tools
 PointCloudPtr correctedPointCloud(PointCloudPtr sourcePointCloudPtr,
@@ -55,6 +57,25 @@ tuplePointCloudPtr fullPipeline(tupleParameters parametersList, double *seedRef,
 ////////////////////////////////
 //////////// METHODS ///////////
 ////////////////////////////////
+
+/* Method to read and load the point cloud using its filename */
+PointCloudPtr loadingCloud(std::string fileName)
+{
+    PointCloudPtr CloudPtr(new PointCloud);
+    PointCloud &Cloud = *CloudPtr;
+
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>(fileName, Cloud) == -1) // load the file
+    {
+        PCL_ERROR("Couldn't read file\n");
+        exit(0);
+    }
+    std::cout << "Loaded source file : " << CloudPtr->size() << " points." << std::endl;
+    // Remove NaN values from point clouds
+    std::vector<int> nanValues;
+    pcl::removeNaNFromPointCloud(Cloud, Cloud, nanValues);
+
+    return CloudPtr;
+}
 
 /* Method to perform a custom transformation on an input point cloud and returns a resulted point cloud */
 PointCloudPtr correctedPointCloud(PointCloudPtr sourcePointCloudPtr,
@@ -348,13 +369,31 @@ tuplePointCloudPtr fullPipelineSift(tupleParameters parametersList, double *seed
     PointCloud &targetCloud = *targetCloudPtr;
 
     // sift
-    Eigen::Matrix4f rotation_mat_sift;
+    Eigen::Matrix4f final_transformation;
+    pipelineSiftOutputPtr pipelineOutputPtr;
+    PtCloudPointWithScalePtr srcKeypointsPtr;
+    PtCloudPointWithScalePtr trgKeypointsPtr;
     PointCloudPtr finalCloudPtr(new PointCloud);
-    rotation_mat_sift = siftPipeline(sourceTransformedCloudPtr, targetCloudPtr, pipelineSettings);
+    PointCloudPtr transformedCloudPtr(new PointCloud);
     PointCloudPtr finalTransformedCloudPtr(new PointCloud);
     PointCloud &finalTransformedCloud = *finalTransformedCloudPtr;
-    pcl::transformPointCloud(sourceTransformedCloud, finalTransformedCloud, rotation_mat_sift);
+
+    pipelineOutputPtr = siftPipeline(sourceTransformedCloudPtr, targetCloudPtr, pipelineSettings);
+    std::tie(sourceTransformedCloudPtr, targetCloudPtr, transformedCloudPtr, srcKeypointsPtr, trgKeypointsPtr, final_transformation) = pipelineOutputPtr;
+
+    pcl::transformPointCloud(sourceTransformedCloud, finalTransformedCloud, final_transformation);
     copyPointCloud(*finalTransformedCloudPtr, *finalCloudPtr);
+
+    // display the points
+    //double visualizerParameter = pipelineSettings.getValue(VISUALIZER_PARAMETER);
+
+    visualizationToolSift(sourceCloudPtr,
+                          targetCloudPtr,
+                          transformedCloudPtr,
+                          srcKeypointsPtr,
+                          trgKeypointsPtr,
+                          pipelineSettings,
+                          pipelineType);
 
     return {sourceCloudPtr, targetCloudPtr, sourceTransformedCloudPtr, finalCloudPtr, randomAngleOnX, randomAngleOnY, randomAngleOnZ};
 }
@@ -437,21 +476,39 @@ tuplePointCloudPtr fullPipelineHarris(tupleParameters parametersList, double *se
     PointCloud &targetCloud = *targetCloudPtr;
 
     // harris
-    Eigen::Matrix4f rotation_mat_harris;
-    PointCloudPtr finalCloudPtr(new PointCloud);
 
-    rotation_mat_harris = harrisPipeline(sourceTransformedCloudPtr, targetCloudPtr, pipelineSettings);
+    Eigen::Matrix4f final_transformation;
+    pipelineHarrisOutputPtr pipelineOutputPtr;
+    PtCloudPointWithIntensityPtr srcKeypointsPtr;
+    PtCloudPointWithIntensityPtr trgKeypointsPtr;
+    PointCloudPtr finalCloudPtr(new PointCloud);
     PointCloudPtr finalTransformedCloudPtr(new PointCloud);
+    PointCloudPtr transformedCloudPtr(new PointCloud);
     PointCloud &finalTransformedCloud = *finalTransformedCloudPtr;
-    pcl::transformPointCloud(sourceTransformedCloud, finalTransformedCloud, rotation_mat_harris);
+
+    pipelineOutputPtr = harrisPipeline(sourceTransformedCloudPtr, targetCloudPtr, pipelineSettings);
+    std::tie(sourceTransformedCloudPtr, targetCloudPtr, transformedCloudPtr, srcKeypointsPtr, trgKeypointsPtr, final_transformation) = pipelineOutputPtr;
+
+    pcl::transformPointCloud(sourceTransformedCloud, finalTransformedCloud, final_transformation);
     copyPointCloud(*finalTransformedCloudPtr, *finalCloudPtr);
+
+    // display the points
+    //double visualizerParameter = pipelineSettings.getValue(VISUALIZER_PARAMETER);
+
+    visualizationToolHarris(sourceCloudPtr,
+                            targetCloudPtr,
+                            transformedCloudPtr,
+                            srcKeypointsPtr,
+                            trgKeypointsPtr,
+                            pipelineSettings,
+                            pipelineType);
 
     return {sourceCloudPtr, targetCloudPtr, sourceTransformedCloudPtr, finalCloudPtr, randomAngleOnX, randomAngleOnY, randomAngleOnZ};
 }
 
 //Full pipeline without detection step
-tuplePointCloudPtr fullPipeline(tupleParameters parametersList, double *seedRef, double *seedSource, double *seedCustomRotation, 
-    Settings pipelineSettings)
+tuplePointCloudPtr fullPipeline(tupleParameters parametersList, double *seedRef, double *seedSource, double *seedCustomRotation,
+                                Settings pipelineSettings)
 {
     // Extract values from tuple
     std::string pipelineType, typeTransformation, referenceDataFilename;
@@ -526,13 +583,18 @@ tuplePointCloudPtr fullPipeline(tupleParameters parametersList, double *seedRef,
     PointCloud &sourceTransformedCloud = *sourceTransformedCloudPtr;
     PointCloud &targetCloud = *targetCloudPtr;
 
-    // harris
-    Eigen::Matrix4f rotation_mat;
+    // pipeline with all points
+    pipelineAllPointsOutputPtr pipelineOutputPtr;
+    Eigen::Matrix4f final_transformation;
     PointCloudPtr finalCloudPtr(new PointCloud);
-    rotation_mat = pipelineAllPoints(sourceTransformedCloudPtr, targetCloudPtr, pipelineSettings);
+    PointCloudPtr transformedCloudPtr(new PointCloud);
+
+    pipelineOutputPtr = pipelineAllPoints(sourceTransformedCloudPtr, targetCloudPtr, pipelineSettings);
+    std::tie(sourceTransformedCloudPtr, targetCloudPtr, transformedCloudPtr, final_transformation) = pipelineOutputPtr;
+
     PointCloudPtr finalTransformedCloudPtr(new PointCloud);
     PointCloud &finalTransformedCloud = *finalTransformedCloudPtr;
-    pcl::transformPointCloud(sourceTransformedCloud, finalTransformedCloud, rotation_mat);
+    pcl::transformPointCloud(*sourceTransformedCloudPtr, finalTransformedCloud, final_transformation);
     copyPointCloud(*finalTransformedCloudPtr, *finalCloudPtr);
 
     return {sourceCloudPtr, targetCloudPtr, sourceTransformedCloudPtr, finalCloudPtr, randomAngleOnX, randomAngleOnY, randomAngleOnZ};
@@ -635,7 +697,8 @@ double meanTargetRegistrationError(PointCloudPtr srcPointCloudPtr, PointCloudPtr
 }
 
 /* Append current time stamp to provided filename (after stripping any extension) */
-std::string appendTimestamp(std::string filename) {
+std::string appendTimestamp(std::string filename)
+{
     auto t = std::time(nullptr);
     auto tm = *std::localtime(&t);
     std::ostringstream oss;
@@ -676,25 +739,32 @@ void fullRegistration(std::string &fullParametersFilename,
              x_angle_min, x_angle_max, y_angle_min, y_angle_max, z_angle_min, z_angle_max) = parametersList;
 
     {
-        
+
         tuplePointCloudPtr PointCloudsPtrOutput;
-        
-        if (pipelineType == "all") { 
+
+        if (pipelineType == "all")
+        {
             // run witout detection step, i.e. use all points as keypoints
-            PointCloudsPtrOutput = fullPipeline(parametersList, seedRef, seedSource, 
-                seedCustomRotation, pipelineSettings);
+            std::cout << "\nVisualizer parameter : " << pipelineSettings.getValue(VISUALIZER_PARAMETER) << std::endl;
+            PointCloudsPtrOutput = fullPipeline(parametersList, seedRef, seedSource,
+                                                seedCustomRotation, pipelineSettings);
         }
-        else if (pipelineType == "sift") {
+        else if (pipelineType == "sift")
+        {
             // SIFT detection pipeline
-            PointCloudsPtrOutput = fullPipelineSift(parametersList, seedRef, seedSource, 
-                seedCustomRotation, pipelineSettings);
+            std::cout << "\nVisualizer parameter : " << pipelineSettings.getValue(VISUALIZER_PARAMETER) << std::endl;
+            PointCloudsPtrOutput = fullPipelineSift(parametersList, seedRef, seedSource,
+                                                    seedCustomRotation, pipelineSettings);
         }
-        else if (pipelineType == "harris") {
+        else if (pipelineType == "harris")
+        {
             // Harris detection pipeline
-            PointCloudsPtrOutput = fullPipelineHarris(parametersList, seedRef, seedSource, 
-                seedCustomRotation, pipelineSettings);
+            std::cout << "\nVisualizer parameter : " << pipelineSettings.getValue(VISUALIZER_PARAMETER) << std::endl;
+            PointCloudsPtrOutput = fullPipelineHarris(parametersList, seedRef, seedSource,
+                                                      seedCustomRotation, pipelineSettings);
         }
-        else {
+        else
+        {
             std::cout << "===ERROR=== aborting: pipelineType not recognized: " << pipelineType << std::endl;
             return;
         }
@@ -745,10 +815,11 @@ void fullRegistration(std::string &fullParametersFilename,
         settingsMap["seedRef"] = std::to_string(initialSeedRef);
         settingsMap["seedSource"] = std::to_string(initialSeedSource);
         settingsMap["seedRot"] = std::to_string(initialSeedRot);
-        
+
         // transfer pipelinesettings to settingsmap
         DoubleMap pipelineSettingsMap = pipelineSettings.getAllSettings();
-        for (auto item : pipelineSettingsMap) {
+        for (auto item : pipelineSettingsMap)
+        {
             settingsMap[item.first] = std::to_string(item.second);
         }
         // save results to csv formatted file

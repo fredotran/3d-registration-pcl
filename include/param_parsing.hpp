@@ -2,6 +2,7 @@
 #include <map>
 #include <cmath> // for NaN numbers
 #include <stdexcept>
+#include "parameters.hpp"
 
 // parameter parsing
 std::string getParameterStringValue(std::map<std::string, std::string> map, std::string paramName);

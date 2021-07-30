@@ -1,38 +1,45 @@
-#include "registration.hpp"
+//#include "registration.hpp"
+#include "param_parsing.hpp"
 
 ////////////////////////////////
 ////////// PROTOTYPES //////////
 ////////////////////////////////
 
-// Visualizing tools
+// single viewers tools
 void visualizeSinglePointCloud(PointCloudPtr inputCloudPtr);
 void visualizeMatchingResults(PointCloudPtr inputCloudPtr,
                               PointCloudPtr transformedCloudPtr);
-void multipleViewPointCloudsSift(PointCloudPtr inputSrcCloudPtr,
-                                 PointCloudPtr inputTrgCloudPtr,
-                                 PtCloudPointWithScalePtr sourceSiftKeypointsPtr,
-                                 PtCloudPointWithScalePtr targetSiftKeypointsPtr,
-                                 PointCloudPtr transformedCloudPtr);
+
 void visualizeSinglePointCloudForHarris(PointCloudPtr inputCloudPtr,
                                         PtCloudPointWithIntensityPtr inputKeypointsCloudPtr);
+
 void visualizeSinglePointCloudForBRISK(PointCloudPtr inputCloudPtr,
                                        PtCloudPointWithScalePtr inputKeypointsCloudPtr);
 void visualizePtClouds(PointCloudPtr inputSrcCloudPtr,
                        PointCloudPtr inputTrgCloudPtr);
-void visualizeMultipleMatchingResults(PointCloudPtr inputTrgCloudPtr1,
-                                      PointCloudPtr inputTrgCloudPtr2,
-                                      PointCloudPtr transformedCloudPtr1,
-                                      PointCloudPtr transformedCloudPtr2);
-void multipleViewPointCloudsSift(PointCloudPtr inputSrcCloudPtr,
-                                 PointCloudPtr inputTrgCloudPtr,
-                                 PtCloudPointWithScalePtr sourceSiftKeypointsPtr,
-                                 PtCloudPointWithScalePtr targetSiftKeypointsPtr,
-                                 PointCloudPtr transformedCloudPtr);
 
 void visualizeResults(PointCloudPtr referenceCloudPtr,
                       PointCloudPtr sourceCloudPtr,
                       PointCloudPtr customTransformedCloudPtr,
                       PointCloudPtr transformedCloudPtr);
+
+// multiple viewers tools
+void visualizeMultipleResultsPointCloudHarris(PointCloudPtr sourceCloudPtr,
+                                              PointCloudPtr targetCloudPtr,
+                                              PtCloudPointWithIntensityPtr srcKeypointsCloudPtr,
+                                              PtCloudPointWithIntensityPtr trgKeypointsCloudPtr,
+                                              PointCloudPtr transformedCloudPtr);
+
+void visualizeMultipleResultsPointCloudSift(PointCloudPtr inputSrcCloudPtr,
+                                            PointCloudPtr inputTrgCloudPtr,
+                                            PtCloudPointWithScalePtr sourceSiftKeypointsPtr,
+                                            PtCloudPointWithScalePtr targetSiftKeypointsPtr,
+                                            PointCloudPtr transformedCloudPtr);
+
+void visualizeMultipleMatchingResults(PointCloudPtr inputTrgCloudPtr1,
+                                      PointCloudPtr inputTrgCloudPtr2,
+                                      PointCloudPtr transformedCloudPtr1,
+                                      PointCloudPtr transformedCloudPtr2);
 
 void visualizeMultipleResults(PointCloudPtr referenceCloudPtr1,
                               PointCloudPtr sourceCloudPtr1,
@@ -42,6 +49,22 @@ void visualizeMultipleResults(PointCloudPtr referenceCloudPtr1,
                               PointCloudPtr sourceCloudPtr2,
                               PointCloudPtr customTransformedCloudPtr2,
                               PointCloudPtr transformedCloudPtr2);
+
+void visualizationToolSift(PointCloudPtr sourceCloudPtr,
+                           PointCloudPtr targetCloudPtr,
+                           PointCloudPtr transformedCloudPtr,
+                           PtCloudPointWithScalePtr srcSiftKeypointsCloudPtr,
+                           PtCloudPointWithScalePtr trgSiftKeypointsCloudPtr,
+                           Settings pipelineSettings,
+                           std::string pipelineType);
+
+void visualizationToolHarris(PointCloudPtr sourceCloudPtr,
+                             PointCloudPtr targetCloudPtr,
+                             PointCloudPtr transformedCloudPtr,
+                             PtCloudPointWithIntensityPtr srcHarrisKeypointsCloudPtr,
+                             PtCloudPointWithIntensityPtr trgHarrisKeypointsCloudPtr,
+                             Settings pipelineSettings,
+                             std::string pipelineType);
 
 /*******************************************************************************************************************************************************/
 /*******************************************************************************************************************************************************/
@@ -144,6 +167,92 @@ void visualizeSinglePointCloudForHarris(PointCloudPtr inputCloudPtr,
     }
 }
 
+/* Method to visualize multiple clouds with Harris Keypoints */
+void visualizeMultipleResultsPointCloudHarris(PointCloudPtr sourceCloudPtr,
+                                              PointCloudPtr targetCloudPtr,
+                                              PtCloudPointWithIntensityPtr srcKeypointsCloudPtr,
+                                              PtCloudPointWithIntensityPtr trgKeypointsCloudPtr,
+                                              PointCloudPtr transformedCloudPtr)
+{
+    pcl::visualization::PCLVisualizer viewer("3D Viewer");
+    viewer.setBackgroundColor(0.0, 0.0, 0.0);
+    int v1(0);
+    int v2(1);
+    viewer.createViewPort(0.0, 0.0, 0.5, 1.0, v1);
+    viewer.createViewPort(0.5, 0.0, 1.0, 1.0, v2);
+    viewer.initCameraParameters();
+
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> src_cloud_color_handler(sourceCloudPtr, 255, 255, 0);
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tar_cloud_color_handler(targetCloudPtr, 0, 255, 255);
+    // visualizer 1
+    viewer.addPointCloud(sourceCloudPtr, src_cloud_color_handler, "source cloud v1", v1);
+    viewer.addPointCloud(targetCloudPtr, tar_cloud_color_handler, "target cloud v1", v1);
+    // visualizer 2
+    viewer.addPointCloud(targetCloudPtr, tar_cloud_color_handler, "target cloud v2", v2);
+    viewer.addPointCloud(transformedCloudPtr, tar_cloud_color_handler, "transformed cloud v2", v2);
+    // Show keypoints in 3D viewer
+    pcl::visualization::PointCloudColorHandlerCustom<PointWithIntensity> src_keypoints_color_handler(srcKeypointsCloudPtr, 255, 0, 0);
+    viewer.addPointCloud<PointWithIntensity>(srcKeypointsCloudPtr, src_keypoints_color_handler, "source keypoints", v1);
+    viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "source keypoints");
+    pcl::visualization::PointCloudColorHandlerCustom<PointWithIntensity> tar_keypoints_color_handler(trgKeypointsCloudPtr, 0, 0, 255);
+    viewer.addPointCloud<PointWithIntensity>(trgKeypointsCloudPtr, tar_keypoints_color_handler, "target keypoints", v1);
+    viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "target keypoints");
+    // Add transformed point cloud to viewer
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tf_cloud_color_handler(transformedCloudPtr, 0, 255, 0);
+    viewer.addPointCloud<pcl::PointXYZ>(transformedCloudPtr, tf_cloud_color_handler, "initial aligned cloudv2", v2);
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> target_cloud_color_handler(targetCloudPtr, 0, 0, 255);
+    viewer.addPointCloud<pcl::PointXYZ>(targetCloudPtr, target_cloud_color_handler, "aligned cloudv2", v2);
+
+    while (!viewer.wasStopped())
+    {
+        viewer.spinOnce();
+        pcl_sleep(0.01);
+    }
+}
+
+/* Method to visualize the matching results & the keypoints */
+void visualizeMultipleResultsPointCloudSift(PointCloudPtr inputSrcCloudPtr,
+                                            PointCloudPtr inputTrgCloudPtr,
+                                            PtCloudPointWithScalePtr sourceSiftKeypointsPtr,
+                                            PtCloudPointWithScalePtr targetSiftKeypointsPtr,
+                                            PointCloudPtr transformedCloudPtr)
+{
+    pcl::visualization::PCLVisualizer viewer("3D Viewer");
+    viewer.setBackgroundColor(0.0, 0.0, 0.0);
+    int v1(0);
+    int v2(1);
+    viewer.createViewPort(0.0, 0.0, 0.5, 1.0, v1);
+    viewer.createViewPort(0.5, 0.0, 1.0, 1.0, v2);
+    viewer.initCameraParameters();
+
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> src_cloud_color_handler(inputSrcCloudPtr, 255, 255, 0);
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tar_cloud_color_handler(inputTrgCloudPtr, 0, 255, 255);
+    // visualizer 1
+    viewer.addPointCloud(inputSrcCloudPtr, src_cloud_color_handler, "source cloud v1", v1);
+    viewer.addPointCloud(inputTrgCloudPtr, tar_cloud_color_handler, "target cloud v1", v1);
+    // visualizer 2
+    viewer.addPointCloud(inputTrgCloudPtr, tar_cloud_color_handler, "target cloud v2", v2);
+    viewer.addPointCloud(transformedCloudPtr, tar_cloud_color_handler, "transformed cloud v2", v2);
+    // Show keypoints in 3D viewer
+    pcl::visualization::PointCloudColorHandlerCustom<PointWithScale> src_keypoints_color_handler(sourceSiftKeypointsPtr, 255, 0, 0);
+    viewer.addPointCloud<PointWithScale>(sourceSiftKeypointsPtr, src_keypoints_color_handler, "source keypoints", v1);
+    viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "source keypoints");
+    pcl::visualization::PointCloudColorHandlerCustom<PointWithScale> tar_keypoints_color_handler(targetSiftKeypointsPtr, 0, 0, 255);
+    viewer.addPointCloud<PointWithScale>(targetSiftKeypointsPtr, tar_keypoints_color_handler, "target keypoints", v1);
+    viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "target keypoints");
+    // Add transformed point cloud to viewer
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tf_cloud_color_handler(transformedCloudPtr, 0, 255, 0);
+    viewer.addPointCloud<pcl::PointXYZ>(transformedCloudPtr, tf_cloud_color_handler, "initial aligned cloud", v2);
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> target_cloud_color_handler(inputTrgCloudPtr, 0, 0, 255);
+    viewer.addPointCloud<pcl::PointXYZ>(inputTrgCloudPtr, target_cloud_color_handler, "aligned cloudv2", v2);
+
+    while (!viewer.wasStopped())
+    {
+        viewer.spinOnce();
+        pcl_sleep(0.01);
+    }
+}
+
 /* Method to visualize the BRISK Keypoints */
 void visualizeSinglePointCloudForBRISK(PointCloudPtr inputCloudPtr,
                                        PtCloudPointWithScalePtr inputKeypointsCloudPtr)
@@ -186,45 +295,8 @@ void visualizeMatchingResults(PointCloudPtr inputCloudPtr,
     o.x = 0;
     o.y = 0;
     o.z = 0;
+
     viewer.addSphere(o, 1, "sphere", 0);
-
-    while (!viewer.wasStopped())
-    {
-        viewer.spinOnce();
-        pcl_sleep(0.01);
-    }
-}
-
-/* Method to visualize the matching results & the keypoints */
-void multipleViewPointCloudsSift(PointCloudPtr inputSrcCloudPtr,
-                                 PointCloudPtr inputTrgCloudPtr,
-                                 PtCloudPointWithScalePtr sourceSiftKeypointsPtr,
-                                 PtCloudPointWithScalePtr targetSiftKeypointsPtr,
-                                 PointCloudPtr transformedCloudPtr)
-{
-    pcl::visualization::PCLVisualizer viewer("3D Viewer");
-    viewer.setBackgroundColor(0.0, 0.0, 0.0);
-    int v1(0);
-    int v2(1);
-    viewer.createViewPort(0.0, 0.0, 0.5, 1.0, v1);
-    viewer.createViewPort(0.5, 0.0, 1.0, 1.0, v2);
-    viewer.initCameraParameters();
-
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> src_cloud_color_handler(inputSrcCloudPtr, 255, 255, 0);
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tar_cloud_color_handler(inputTrgCloudPtr, 0, 255, 255);
-    viewer.addPointCloud(inputSrcCloudPtr, src_cloud_color_handler, "source cloud v1", v1);
-    viewer.addPointCloud(inputTrgCloudPtr, tar_cloud_color_handler, "target cloud v1", v1);
-    viewer.addPointCloud(inputTrgCloudPtr, tar_cloud_color_handler, "target cloud v2", v2);
-    // Show keypoints in 3D viewer
-    pcl::visualization::PointCloudColorHandlerCustom<PointWithScale> src_keypoints_color_handler(sourceSiftKeypointsPtr, 255, 0, 0);
-    viewer.addPointCloud<PointWithScale>(sourceSiftKeypointsPtr, src_keypoints_color_handler, "source keypoints", v1);
-    viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "source keypoints");
-    pcl::visualization::PointCloudColorHandlerCustom<PointWithScale> tar_keypoints_color_handler(targetSiftKeypointsPtr, 0, 0, 255);
-    viewer.addPointCloud<PointWithScale>(targetSiftKeypointsPtr, tar_keypoints_color_handler, "target keypoints", v1);
-    viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "target keypoints");
-    // Add transformed point cloud to viewer
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tf_cloud_color_handler(transformedCloudPtr, 0, 255, 0);
-    viewer.addPointCloud<pcl::PointXYZ>(transformedCloudPtr, tf_cloud_color_handler, "initial aligned cloud", v2);
 
     while (!viewer.wasStopped())
     {
@@ -345,5 +417,79 @@ void visualizeMultipleResults(PointCloudPtr referenceCloudPtr1,
     {
         viewer.spinOnce();
         pcl_sleep(0.01);
+    }
+}
+
+////////////////////////////////////////////
+
+void visualizationToolSift(PointCloudPtr sourceCloudPtr,
+                           PointCloudPtr targetCloudPtr,
+                           PointCloudPtr transformedCloudPtr,
+                           PtCloudPointWithScalePtr srcSiftKeypointsCloudPtr,
+                           PtCloudPointWithScalePtr trgSiftKeypointsCloudPtr,
+                           Settings pipelineSettings,
+                           std::string pipelineType)
+{
+    //double visualizerParameter = pipelineSettings.getValue(VISUALIZER_PARAMETER);
+
+    if (pipelineSettings.getValue(VISUALIZER_PARAMETER) == 0.0f)
+    {
+        std::cout << "\nNot displaying any results" << std::endl;
+    }
+
+    if (pipelineSettings.getValue(VISUALIZER_PARAMETER) == 1.0f)
+    {
+        visualizeMatchingResults(transformedCloudPtr, targetCloudPtr);
+        std::cout << "\nDisplaying registration results of the point clouds" << std::endl;
+    }
+
+    if (pipelineSettings.getValue(VISUALIZER_PARAMETER) == 2.0f)
+    {
+
+        if (pipelineType == "sift")
+        {
+            std::cout << "\nDisplaying registration results of the point clouds & the sift associated keypoints" << std::endl;
+            visualizeMultipleResultsPointCloudSift(sourceCloudPtr,
+                                                   targetCloudPtr,
+                                                   srcSiftKeypointsCloudPtr,
+                                                   trgSiftKeypointsCloudPtr,
+                                                   transformedCloudPtr);
+        }
+    }
+}
+
+void visualizationToolHarris(PointCloudPtr sourceCloudPtr,
+                             PointCloudPtr targetCloudPtr,
+                             PointCloudPtr transformedCloudPtr,
+                             PtCloudPointWithIntensityPtr srcHarrisKeypointsCloudPtr,
+                             PtCloudPointWithIntensityPtr trgHarrisKeypointsCloudPtr,
+                             Settings pipelineSettings,
+                             std::string pipelineType)
+{
+    //double visualizerParameter = pipelineSettings.getValue(VISUALIZER_PARAMETER);
+
+    if (pipelineSettings.getValue(VISUALIZER_PARAMETER) == 0.0f)
+    {
+        std::cout << "\nNot displaying any results" << std::endl;
+    }
+
+    if (pipelineSettings.getValue(VISUALIZER_PARAMETER) == 1.0f)
+    {
+        visualizeMatchingResults(transformedCloudPtr, targetCloudPtr);
+        std::cout << "\nDisplaying registration results of the point clouds" << std::endl;
+    }
+
+    if (pipelineSettings.getValue(VISUALIZER_PARAMETER) == 2.0f)
+    {
+
+        if (pipelineType == "harris")
+        {
+            std::cout << "\nDisplaying registration results of the point clouds & the harris associated keypoints" << std::endl;
+            visualizeMultipleResultsPointCloudHarris(sourceCloudPtr,
+                                                     targetCloudPtr,
+                                                     srcHarrisKeypointsCloudPtr,
+                                                     trgHarrisKeypointsCloudPtr,
+                                                     transformedCloudPtr);
+        }
     }
 }

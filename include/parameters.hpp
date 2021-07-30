@@ -75,10 +75,9 @@ typedef std::vector<pcl::PointXYZ> vectorPointXYZ;
 typedef std::map<std::string, std::string> StringMap;
 typedef std::map<std::string, double> DoubleMap;
 
-
-
-
-
+typedef std::tuple<PointCloudPtr, PointCloudPtr, PointCloudPtr, PtCloudPointWithScalePtr, PtCloudPointWithScalePtr, Eigen::Matrix4f> pipelineSiftOutputPtr;
+typedef std::tuple<PointCloudPtr, PointCloudPtr, PointCloudPtr, PtCloudPointWithIntensityPtr, PtCloudPointWithIntensityPtr, Eigen::Matrix4f> pipelineHarrisOutputPtr;
+typedef std::tuple<PointCloudPtr, PointCloudPtr, PointCloudPtr, Eigen::Matrix4f> pipelineAllPointsOutputPtr;
 
 
 /*
@@ -109,7 +108,7 @@ const int nr_iters = 200;*/
 // =====================================
 
 const std::string SACIA_MIN_SAMPLE_DIST = "sacia.minSampleDist";
-const std::string SACIA_MAX_CORRESPONDENCE_DIST = "sacia.maxCorrFeatureDist";
+const std::string SACIA_MAX_CORRESPONDENCE_DIST = "sacia.maxCorrDist";
 const std::string SACIA_NUM_ITERATIONS = "sacia.numIterations";
 const std::string SACIA_NUM_SAMPLES = "sacia.numSamplesPerIter";
 const std::string NORMALS_SEARCH_RADIUS = "normals.searchRadius";
@@ -125,6 +124,8 @@ const std::string SIFT_NUM_SCALES_PER_OCTAVE_SOURCE = "sift.numScalesPerOctaveSo
 const std::string SIFT_NUM_SCALES_PER_OCTAVE_TARGET = "sift.numScalesPerOctaveTarget";
 const std::string SIFT_MIN_CONTRAST_SOURCE = "sift.minContrastSource";
 const std::string SIFT_MIN_CONTRAST_TARGET = "sift.minContrastTarget";
+const std::string VISUALIZER_PARAMETER = "visualizer.parameter";
+
 
 
 Settings getPipelineDefaultSettings() {
@@ -132,10 +133,13 @@ Settings getPipelineDefaultSettings() {
     Settings settings;
 
     // Sample Consensus Initial Alignment (SAC-IA) parameters for LM datasets
-    settings.setValue(SACIA_MIN_SAMPLE_DIST, 3.0f); // minimum geometric euclidian distance between points during random sampling
-    settings.setValue(SACIA_MAX_CORRESPONDENCE_DIST, 1.0f); // max distance between NN correspondences from intermittent pose estimation to be considered for pose candidate transform ??
-    settings.setValue(SACIA_NUM_ITERATIONS, 500); // number of iterations
-    settings.setValue(SACIA_NUM_SAMPLES, 50); // number of samples in each iteration
+    
+    settings.setValue(SACIA_MIN_SAMPLE_DIST, 4.0f); // minimum geometric euclidian distance between points during random sampling
+    /* // max distance between NN correspondences from intermittent pose estimation 
+    to be considered for pose candidate transform. Note that this should be the square of the distance. */
+    settings.setValue(SACIA_MAX_CORRESPONDENCE_DIST, 8.0f);  
+    settings.setValue(SACIA_NUM_ITERATIONS, 800); // number of iterations
+    settings.setValue(SACIA_NUM_SAMPLES, 5); // number of samples in each iteration
         
     settings.setValue(NORMALS_SEARCH_RADIUS, 1.5);   // search radius for computation of surface normals
     settings.setValue(FPFH_SEARCH_RADIUS, 3.0);   // search radius for FPFH descriptor. IMPORTANT: must be larger than radius used to estimate the surface normals!!!
@@ -152,6 +156,9 @@ Settings getPipelineDefaultSettings() {
     settings.setValue(SIFT_NUM_SCALES_PER_OCTAVE_TARGET, 8); // the number of scales to compute within each octave
     settings.setValue(SIFT_MIN_CONTRAST_SOURCE, 1e-3);   // the minimum contrast required for detection
     settings.setValue(SIFT_MIN_CONTRAST_TARGET, 1e-3);   // the minimum contrast required for detection
+
+    // VISUALIZER PARAMETERS
+    settings.setValue(VISUALIZER_PARAMETER, 0.0f); // parameter for the visualization, setting to 0 by default
 
     return settings;
 }

@@ -1,0 +1,13 @@
+pipeline_type=harris
+type_transformation=rotation
+surface_model_data_file=../data/y675_58_5025_17.pcd
+x_uncertainty=12.7
+y_uncertainty=12.7
+source_width=35	
+source_height=23
+x_angle_min=0
+x_angle_max=0
+y_angle_min=0
+y_angle_max=0
+z_angle_min=-180
+z_angle_max=180

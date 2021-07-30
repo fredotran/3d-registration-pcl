@@ -1,12 +1,12 @@
-#include "parameters.hpp"
-#include "param_parsing.hpp"
+#include "visualization_tools.hpp"
+#include "file_io.hpp"
+#include "randomization.hpp"
 
 ////////////////////////////////
 ////////// PROTOTYPES //////////
 ////////////////////////////////
 
 // Reading point clouds & computing normals
-PointCloudPtr loadingCloud(std::string fileName);
 pcl::PointCloud<pcl::PointNormal>::Ptr computePointNormals(PointCloudPtr inputCloudPtr,
                                                            pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormals,
                                                            const double &search_radius);
@@ -73,9 +73,9 @@ Eigen::Matrix4f computeSACInitialAlignment(PtCloudPointWithIntensityPtr &sourceH
                                            const int &nr_samples);
 
 // Full pipelines
-Eigen::Matrix4f siftPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Settings settings);
-Eigen::Matrix4f harrisPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Settings settings);
-Eigen::Matrix4f pipelineAllPoints(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Settings settings);
+pipelineSiftOutputPtr siftPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Settings settings);
+pipelineHarrisOutputPtr harrisPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Settings settings);
+pipelineAllPointsOutputPtr pipelineAllPoints(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Settings settings);
 
 /*******************************************************************************************************************************************************/
 /*******************************************************************************************************************************************************/
@@ -84,25 +84,6 @@ Eigen::Matrix4f pipelineAllPoints(PointCloudPtr sourceCloudPtr, PointCloudPtr ta
 ////////////////////////////////
 //////////// METHODS ///////////
 ////////////////////////////////
-
-/* Method to read and load the point cloud using its filename */
-PointCloudPtr loadingCloud(std::string fileName)
-{
-    PointCloudPtr CloudPtr(new PointCloud);
-    PointCloud &Cloud = *CloudPtr;
-
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>(fileName, Cloud) == -1) // load the file
-    {
-        PCL_ERROR("Couldn't read file\n");
-        exit(0);
-    }
-    std::cout << "Loaded source file : " << CloudPtr->size() << " points." << std::endl;
-    // Remove NaN values from point clouds
-    std::vector<int> nanValues;
-    pcl::removeNaNFromPointCloud(Cloud, Cloud, nanValues);
-
-    return CloudPtr;
-}
 
 /* Compute the point normals of the input point cloud using KdTree search */
 pcl::PointCloud<pcl::PointNormal>::Ptr computePointNormals(PointCloudPtr inputCloudPtr,
@@ -505,13 +486,11 @@ public:
 /********************* PIPELINES ***********************/
 /*******************************************************/
 
-Eigen::Matrix4f
-siftPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Settings settings)
+pipelineSiftOutputPtr siftPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Settings settings)
 {
 
-
     double normalsSearchRadius = settings.getValue(NORMALS_SEARCH_RADIUS);
-    
+
     pcl::PointCloud<pcl::PointNormal>::Ptr sourceNormalsPtr;
     pcl::PointCloud<pcl::PointNormal>::Ptr targetNormalsPtr;
     pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormals(new pcl::search::KdTree<pcl::PointXYZ>);
@@ -529,7 +508,7 @@ siftPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Setting
     double numOctavesTarget = settings.getValue(SIFT_NUM_OCTAVES_TARGET);
     double numScalesPerOctaveTarget = settings.getValue(SIFT_NUM_SCALES_PER_OCTAVE_TARGET);
     double minContrastTarget = settings.getValue(SIFT_MIN_CONTRAST_TARGET);
-    
+
     sourceSiftKeypointsPtr = SIFT.computeSiftKeypoints(sourceNormalsPtr,
                                                        minScaleSource,
                                                        numOctavesSource,
@@ -546,7 +525,7 @@ siftPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Setting
     pcl::search::KdTree<pcl::PointXYZ>::Ptr treeFPFH(new pcl::search::KdTree<pcl::PointXYZ>);
 
     double fpfhSearchRadius = settings.getValue(FPFH_SEARCH_RADIUS);
-    
+
     sourceFPFHSift = FPFHSift.computeFPFH(sourceCloudPtr,
                                           sourceNormalsPtr,
                                           sourceSiftKeypointsPtr,
@@ -567,7 +546,6 @@ siftPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Setting
     int numIterations = std::lround(settings.getValue(SACIA_NUM_ITERATIONS));
     int numSamples = std::lround(settings.getValue(SACIA_NUM_SAMPLES));
 
-    
     std::cout << "numSamples = " << numSamples << std::endl;
 
     final_transformation_sift = SampleConsensusIASift.computeSACInitialAlignment(sourceSiftKeypointsPtr,
@@ -579,14 +557,19 @@ siftPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Setting
                                                                                  numIterations,
                                                                                  numSamples);
 
-    return final_transformation_sift;
+    PointCloudPtr transformedCloudPtr(new PointCloud);
+    PointCloudPtr newSrcPtCloudPtr(new PointCloud);
+    copyPointCloud(*sourceCloudPtr, *newSrcPtCloudPtr);
+    pcl::transformPointCloud(*newSrcPtCloudPtr, *transformedCloudPtr, final_transformation_sift);
+
+    return {sourceCloudPtr, targetCloudPtr, transformedCloudPtr, sourceSiftKeypointsPtr, targetSiftKeypointsPtr, final_transformation_sift};
 }
 
-Eigen::Matrix4f harrisPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Settings settings)
+pipelineHarrisOutputPtr harrisPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Settings settings)
 {
 
     double normalsSearchRadius = settings.getValue(NORMALS_SEARCH_RADIUS);
-    
+
     pcl::PointCloud<pcl::PointNormal>::Ptr sourceNormalsPtr;
     pcl::PointCloud<pcl::PointNormal>::Ptr targetNormalsPtr;
     pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormals(new pcl::search::KdTree<pcl::PointXYZ>);
@@ -605,9 +588,9 @@ Eigen::Matrix4f harrisPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targe
 
     pcl::PointCloud<pcl::FPFHSignature33>::Ptr sourceFPFHHarris(new pcl::PointCloud<pcl::FPFHSignature33>);
     pcl::PointCloud<pcl::FPFHSignature33>::Ptr targetFPFHHarris(new pcl::PointCloud<pcl::FPFHSignature33>);
-    
+
     double fpfhSearchRadius = settings.getValue(FPFH_SEARCH_RADIUS);
-    
+
     Descriptor FPFHHarris;
     sourceFPFHHarris = FPFHHarris.computeFPFH(sourceCloudPtr,
                                               sourceNormalsPtr,
@@ -622,13 +605,13 @@ Eigen::Matrix4f harrisPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targe
 
     SearchingMethods SampleConsensusIAHarris;
     Eigen::Matrix4f final_transformation_harris;
-    
+
     // get SAC-IA settings
     double minSampleDist = settings.getValue(SACIA_MIN_SAMPLE_DIST);
     double maxCorrespondDist = settings.getValue(SACIA_MAX_CORRESPONDENCE_DIST);
     long numIterations = std::lround(settings.getValue(SACIA_NUM_ITERATIONS));
     long numSamples = std::lround(settings.getValue(SACIA_NUM_SAMPLES));
-   
+
     final_transformation_harris = SampleConsensusIAHarris.computeSACInitialAlignment(srcIntensityHarrisKeypointsPtr,
                                                                                      trgIntensityHarrisKeypointsPtr,
                                                                                      sourceFPFHHarris,
@@ -638,14 +621,19 @@ Eigen::Matrix4f harrisPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targe
                                                                                      numIterations,
                                                                                      numSamples);
 
-    return final_transformation_harris;
+    PointCloudPtr transformedCloudPtr(new PointCloud);
+    PointCloudPtr newSrcPtCloudPtr(new PointCloud);
+    copyPointCloud(*sourceCloudPtr, *newSrcPtCloudPtr);
+    pcl::transformPointCloud(*newSrcPtCloudPtr, *transformedCloudPtr, final_transformation_harris);
+
+    return {sourceCloudPtr, targetCloudPtr, transformedCloudPtr, srcIntensityHarrisKeypointsPtr, trgIntensityHarrisKeypointsPtr, final_transformation_harris};
 }
 
-Eigen::Matrix4f pipelineAllPoints(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Settings settings)
+pipelineAllPointsOutputPtr pipelineAllPoints(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Settings settings)
 {
-    
+
     double normalsSearchRadius = settings.getValue(NORMALS_SEARCH_RADIUS);
-    
+
     pcl::PointCloud<pcl::PointNormal>::Ptr sourceNormalsPtr;
     pcl::PointCloud<pcl::PointNormal>::Ptr targetNormalsPtr;
     pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormals(new pcl::search::KdTree<pcl::PointXYZ>);
@@ -656,7 +644,7 @@ Eigen::Matrix4f pipelineAllPoints(PointCloudPtr sourceCloudPtr, PointCloudPtr ta
     pcl::PointCloud<pcl::FPFHSignature33>::Ptr targetFPFHAll(new pcl::PointCloud<pcl::FPFHSignature33>);
     Descriptor FPFHAll;
     double fpfhSearchRadius = settings.getValue(FPFH_SEARCH_RADIUS);
-    
+
     sourceFPFHAll = FPFHAll.computeFPFH(sourceCloudPtr,
                                         sourceNormalsPtr,
                                         treeNormals,
@@ -671,7 +659,7 @@ Eigen::Matrix4f pipelineAllPoints(PointCloudPtr sourceCloudPtr, PointCloudPtr ta
     Eigen::Matrix4f final_transformation;
 
     // get SAC-IA settings
-    
+
     double minSampleDist = settings.getValue(SACIA_MIN_SAMPLE_DIST);
     double maxCorrespondDist = settings.getValue(SACIA_MAX_CORRESPONDENCE_DIST);
     int numIterations = std::lround(settings.getValue(SACIA_NUM_ITERATIONS));
@@ -686,5 +674,10 @@ Eigen::Matrix4f pipelineAllPoints(PointCloudPtr sourceCloudPtr, PointCloudPtr ta
                                                                         numIterations,
                                                                         numSamples);
 
-    return final_transformation;
+    PointCloudPtr transformedCloudPtr(new PointCloud);
+    PointCloudPtr newSrcPtCloudPtr(new PointCloud);
+    copyPointCloud(*sourceCloudPtr, *newSrcPtCloudPtr);
+    pcl::transformPointCloud(*newSrcPtCloudPtr, *transformedCloudPtr, final_transformation);
+
+    return {sourceCloudPtr, targetCloudPtr, transformedCloudPtr, final_transformation};
 }
