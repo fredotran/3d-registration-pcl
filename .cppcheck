@@ -1,0 +1,38 @@
+// Cppcheck configuration file for 3D Registration PCL project
+
+// Suppress warnings for PCL headers
+missingIncludeSystem
+
+// Enable all checks
+enable=all
+
+// Set C++ standard
+std=c++17
+
+// Include paths
+-Iinclude
+-I/usr/include/pcl-1.10
+-I/usr/include/eigen3
+
+// Suppressions for known issues
+// Suppress unused struct/field warnings from PCL
+unusedStructMember
+unusedVariable
+
+// Performance checks
+--inline-suppr
+
+// Check for unused functions
+--check-unused-functions
+
+// Check for missing includes
+--check-for-internal-classes
+
+// Force checking of all configurations
+--force
+
+// Verbose output
+--verbose
+
+// Report progress
+--report-progress

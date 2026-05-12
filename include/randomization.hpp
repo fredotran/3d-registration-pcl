@@ -1,10 +1,14 @@
+#include <random>
+#include <array>
+#include <cmath>
+#include <cassert>
+#include <iostream>
 
-////////////////////////////////
-////////// PROTOTYPES //////////
-////////////////////////////////
+///////////////////////////////
+///////// PROTOTYPES //////////
+///////////////////////////////
 
 // Randomization
-float randomAngles(float angleMin, float angleMax);
 double randomizeDoubleUniform(double *seed, double min, double max);
 std::array<double, 2> randomizeCoordinate(double *seed, double boundariesX[2], double boundariesY[2], double bufferX, double bufferY);
 std::array<double, 4> randomizeSourceCutout(double *seed, double refModelBoundariesX[2], double refModelBoundariesY[2],
@@ -15,15 +19,7 @@ std::array<double, 4> randomizeSourceCutout(double *seed, double refModelBoundar
 //////////// METHODS ///////////
 ////////////////////////////////
 
-int randomAngle(int angleMin, int angleMax)
-{
-    srand((unsigned)time(0));
-    int randomizedAngle;
-    randomizedAngle = (rand() % angleMax) + angleMin;
-    return randomizedAngle;
-}
-
-/* Generates a random number between min and max (uniform distribution). The seed will be incremented so that it 
+/* Generates a random number between min and max (uniform distribution). The seed will be incremented so that it
 can be directly used in subsequent calls. */
 double randomizeDoubleUniform(double *seed, double min, double max)
 {

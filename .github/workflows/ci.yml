@@ -1,0 +1,148 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+        compiler: [gcc, clang]
+      fail-fast: false
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          git \
+          libeigen3-dev \
+          libflann-dev \
+          libboost-all-dev \
+          libvtk7-dev \
+          libqhull-dev \
+          libx11-dev \
+          libxi-dev \
+          libxrandr-dev \
+          libglew-dev \
+          libglu1-mesa-dev \
+          libopenni-dev \
+          libopenni2-dev \
+          libpcl-dev \
+          pcl-tools \
+          libgtest-dev \
+          cppcheck
+
+    - name: Build GTest
+      run: |
+        cd /usr/src/gtest
+        sudo cmake CMakeLists.txt
+        sudo make
+        sudo cp lib/*.a /usr/lib
+        sudo ln -s /usr/lib/libgtest.a /usr/lib/libgtest_main.a
+
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DBUILD_TESTS=ON \
+          -DBUILD_EXAMPLES=ON \
+          -DBUILD_TOOLS=ON \
+          -DWARNINGS_AS_ERRORS=OFF
+
+    - name: Build
+      run: cmake --build build --config ${{ matrix.build_type }} -j$(nproc)
+
+    - name: Run tests
+      run: |
+        cd build
+        ctest --output-on-failure --verbose
+
+    - name: Run cppcheck
+      run: |
+        cppcheck --enable=all \
+          --std=c++17 \
+          --suppress=missingIncludeSystem \
+          --inline-suppr \
+          --xml \
+          --xml-version=2 \
+          -I include \
+          src/ include/ 2> cppcheck-report.xml || true
+
+    - name: Upload cppcheck results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: cppcheck-results-${{ matrix.build_type }}-${{ matrix.compiler }}
+        path: cppcheck-report.xml
+
+  docker-build:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Build Docker image
+      run: |
+        docker build -t pcl-registration:test .
+
+    - name: Run tests in Docker
+      run: |
+        docker run --rm pcl-registration:test bash -c "cd build && ctest --output-on-failure"
+
+  code-formatting:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install clang-format
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-format
+
+    - name: Check code formatting
+      run: |
+        find src include tests -name '*.cpp' -o -name '*.hpp' -o -name '*.h' | xargs clang-format -i --dry-run -Werror
+
+  documentation-build:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install Doxygen
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y doxygen graphviz
+
+    - name: Build documentation
+      run: |
+        if [ -f Doxyfile ]; then
+          doxygen Doxyfile
+        else
+          echo "Doxyfile not found, skipping documentation build"
+        fi
+
+    - name: Upload documentation
+      if: success()
+      uses: actions/upload-artifact@v3
+      with:
+        name: documentation
+        path: docs/html

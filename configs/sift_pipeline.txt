@@ -1,0 +1,59 @@
+# SIFT-based Registration Pipeline Configuration
+# This configuration uses SIFT keypoints for feature detection
+
+# Pipeline type
+pipelineType=sift
+
+# Transformation type
+typeTransformation=rotation
+
+# Data files
+surface_model_data_file=../data/reference_LM.pcd
+
+# Uncertainty parameters (meters)
+x_uncertainty=5.0
+y_uncertainty=5.0
+
+# Source dimensions (meters)
+sourceWidth=100.0
+sourceHeight=100.0
+
+# Rotation angle ranges (degrees)
+x_angle_min=-10.0
+x_angle_max=10.0
+y_angle_min=-10.0
+y_angle_max=10.0
+z_angle_min=-10.0
+z_angle_max=10.0
+
+# Normal estimation parameters
+normals_search_radius=2.0
+
+# FPFH descriptor parameters
+fpfh_search_radius=2.0
+
+# SIFT detector parameters
+sift_min_scale_source=0.1
+sift_min_scale_target=0.1
+sift_num_octaves_source=6
+sift_num_octaves_target=6
+sift_num_scales_per_octave_source=4
+sift_num_scales_per_octave_target=4
+sift_min_contrast_source=0.001
+sift_min_contrast_target=0.001
+
+# SAC-IA alignment parameters
+sacia_min_sample_distance=3.0
+sacia_max_correspondence_distance=4.0
+sacia_num_iterations=400
+sacia_num_samples=3
+
+# Visualization parameter
+visualizer_parameter=0.0
+
+# BRISK parameters (not used in SIFT pipeline)
+brisk_threshold=0.0
+
+# Harris parameters (not used in SIFT pipeline)
+harris_search_radius=0.0
+harris_threshold=0.0

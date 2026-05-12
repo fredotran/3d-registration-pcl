@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  pcl-registration:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pcl-registration-demo
+    volumes:
+      # Mount the entire project directory for development
+      - .:/app
+      # Mount data directory for easy access to point clouds
+      - ./data:/app/data
+      # Mount results directory for output files
+      - ./results:/app/results
+    working_dir: /app
+    # Enable X11 forwarding for visualization (optional - requires host setup)
+    # environment:
+    #   - DISPLAY=${DISPLAY}
+    # volumes_from:
+    #   - x11
+    # Uncomment the following line if you need X11 forwarding
+    # network_mode: host
+
+  # Uncomment the following service if you need X11 forwarding for visualization
+  # x11:
+  #   image: devture/x11:latest
+  #   volumes:
+  #     - /tmp/.X11-unix:/tmp/.X11-unix:rw
