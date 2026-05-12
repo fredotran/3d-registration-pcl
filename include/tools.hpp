@@ -2,6 +2,10 @@
 
 #include "registration.hpp"
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 ///////////////////////////////
 //////// PROTOTYPES ///////////
 ///////////////////////////////
@@ -51,8 +55,12 @@ TuplePointCloudPtr fullPipelineSift(TupleParameters parametersList, double *seed
                                      double *seedCustomRotation, Settings pipelineSettings);
 TuplePointCloudPtr fullPipelineHarris(TupleParameters parametersList, double *seedRef, double *seedSource,
                                        double *seedCustomRotation, Settings pipelineSettings);
+TuplePointCloudPtr fullPipelineISS(TupleParameters parametersList, double *seedRef, double *seedSource,
+                                    double *seedCustomRotation, Settings pipelineSettings);
 TuplePointCloudPtr fullPipeline(TupleParameters parametersList, double *seedRef, double *seedSource, double *seedCustomRotation,
                                  Settings pipelineSettings);
+TuplePointCloudPtr fullPipelineShot(TupleParameters parametersList, double *seedRef, double *seedSource,
+                                       double *seedCustomRotation, Settings pipelineSettings);
 
 ///////////////////////////////
 ////////// METHODS ///////////
@@ -329,12 +337,28 @@ TuplePointCloudPtr fullPipelineHarris(TupleParameters parametersList, double *se
         parametersList, seedRef, seedSource, seedCustomRotation, pipelineSettings, harrisPipeline);
 }
 
+// Full pipeline with ISS detection
+TuplePointCloudPtr fullPipelineISS(TupleParameters parametersList, double *seedRef, double *seedSource,
+                                    double *seedCustomRotation, Settings pipelineSettings)
+{
+    return fullPipelineTemplate<PipelineISSOutput, 5>(
+        parametersList, seedRef, seedSource, seedCustomRotation, pipelineSettings, issPipeline);
+}
+
 // Full pipeline without detection (all points)
 TuplePointCloudPtr fullPipeline(TupleParameters parametersList, double *seedRef, double *seedSource, double *seedCustomRotation,
                                  Settings pipelineSettings)
 {
     return fullPipelineTemplate<PipelineAllPointsOutput, 3>(
         parametersList, seedRef, seedSource, seedCustomRotation, pipelineSettings, pipelineAllPoints);
+}
+
+// Full pipeline with SHOT descriptor (all points)
+TuplePointCloudPtr fullPipelineShot(TupleParameters parametersList, double *seedRef, double *seedSource,
+                                       double *seedCustomRotation, Settings pipelineSettings)
+{
+    return fullPipelineTemplate<PipelineAllPointsOutput, 3>(
+        parametersList, seedRef, seedSource, seedCustomRotation, pipelineSettings, shotPipeline);
 }
 
 /* get the distance between points */
@@ -348,15 +372,17 @@ inline double distance(const PointXYZ &p1, const PointXYZ &p2)
 inline TupleOfVectorDouble getCoordinates(const PointCloudPtr& srcPointCloudPtr)
 {
     auto& srcPointCloud = *srcPointCloudPtr;
-    std::vector<double> mtre_x_src, mtre_y_src, mtre_z_src;
-    mtre_x_src.reserve(srcPointCloud.size());
-    mtre_y_src.reserve(srcPointCloud.size());
-    mtre_z_src.reserve(srcPointCloud.size());
+    std::vector<double> mtre_x_src(srcPointCloud.size());
+    std::vector<double> mtre_y_src(srcPointCloud.size());
+    std::vector<double> mtre_z_src(srcPointCloud.size());
 
-    for (auto& srcPoint : srcPointCloud) {
-        mtre_x_src.push_back(srcPoint.x);
-        mtre_y_src.push_back(srcPoint.y);
-        mtre_z_src.push_back(srcPoint.z);
+#ifdef _OPENMP
+    #pragma omp parallel for
+#endif
+    for (size_t i = 0; i < srcPointCloud.size(); ++i) {
+        mtre_x_src[i] = srcPointCloud[i].x;
+        mtre_y_src[i] = srcPointCloud[i].y;
+        mtre_z_src[i] = srcPointCloud[i].z;
     }
 
     return {mtre_x_src, mtre_y_src, mtre_z_src};
@@ -366,11 +392,13 @@ inline TupleOfVectorDouble getCoordinates(const PointCloudPtr& srcPointCloudPtr)
 inline VectorPointXYZ Get3DCoordinatesXYZ(const PointCloudPtr& srcPointCloudPtr)
 {
     auto& srcPointCloud = *srcPointCloudPtr;
-    VectorPointXYZ coords;
-    coords.reserve(srcPointCloud.size());
+    VectorPointXYZ coords(srcPointCloud.size());
 
-    for (auto& point : srcPointCloud) {
-        coords.push_back(point);
+#ifdef _OPENMP
+    #pragma omp parallel for
+#endif
+    for (size_t i = 0; i < srcPointCloud.size(); ++i) {
+        coords[i] = srcPointCloud[i];
     }
     return coords;
 }
@@ -381,15 +409,17 @@ TupleOfDouble registrationErrorBias(const PointCloudPtr& srcPointCloudPtr, const
     auto [mtre_x_src, mtre_y_src, mtre_z_src] = getCoordinates(srcPointCloudPtr);
     auto [mtre_x_transformed_src, mtre_y_transformed_src, mtre_z_transformed_src] = getCoordinates(transformedSrcPointCloudPtr);
 
-    std::vector<double> mtre_x, mtre_y, mtre_z;
-    mtre_x.reserve(mtre_x_src.size());
-    mtre_y.reserve(mtre_y_src.size());
-    mtre_z.reserve(mtre_z_src.size());
+    std::vector<double> mtre_x(mtre_x_src.size());
+    std::vector<double> mtre_y(mtre_y_src.size());
+    std::vector<double> mtre_z(mtre_z_src.size());
 
+#ifdef _OPENMP
+    #pragma omp parallel for
+#endif
     for (size_t i = 0; i < mtre_x_src.size(); ++i) {
-        mtre_x.push_back(mtre_x_src[i] - mtre_x_transformed_src[i]);
-        mtre_y.push_back(mtre_y_src[i] - mtre_y_transformed_src[i]);
-        mtre_z.push_back(mtre_z_src[i] - mtre_z_transformed_src[i]);
+        mtre_x[i] = mtre_x_src[i] - mtre_x_transformed_src[i];
+        mtre_y[i] = mtre_y_src[i] - mtre_y_transformed_src[i];
+        mtre_z[i] = mtre_z_src[i] - mtre_z_transformed_src[i];
     }
 
     double avg_x = std::accumulate(mtre_x.begin(), mtre_x.end(), 0.0) / mtre_x.size();
@@ -405,14 +435,17 @@ double meanTargetRegistrationError(const PointCloudPtr& srcPointCloudPtr, const 
     auto coordinatesSrc = Get3DCoordinatesXYZ(srcPointCloudPtr);
     auto coordinatesSrcTransformed = Get3DCoordinatesXYZ(transformedSrcPointCloudPtr);
 
-    std::vector<double> norms;
-    norms.reserve(coordinatesSrc.size());
+    double sum = 0.0;
+    size_t count = coordinatesSrc.size();
 
-    for (size_t i = 0; i < coordinatesSrc.size(); ++i) {
-        norms.push_back(distance(coordinatesSrc[i], coordinatesSrcTransformed[i]));
+#ifdef _OPENMP
+    #pragma omp parallel for reduction(+:sum)
+#endif
+    for (size_t i = 0; i < count; ++i) {
+        sum += distance(coordinatesSrc[i], coordinatesSrcTransformed[i]);
     }
 
-    return std::accumulate(norms.begin(), norms.end(), 0.0) / norms.size();
+    return sum / count;
 }
 
 /* Root Mean Square Error (RMSE) for registration quality */
@@ -422,12 +455,17 @@ double rootMeanSquareError(const PointCloudPtr& srcPointCloudPtr, const PointClo
     auto coordinatesSrcTransformed = Get3DCoordinatesXYZ(transformedSrcPointCloudPtr);
 
     double sum_squared = 0.0;
-    for (size_t i = 0; i < coordinatesSrc.size(); ++i) {
+    size_t count = coordinatesSrc.size();
+
+#ifdef _OPENMP
+    #pragma omp parallel for reduction(+:sum_squared)
+#endif
+    for (size_t i = 0; i < count; ++i) {
         double dist = distance(coordinatesSrc[i], coordinatesSrcTransformed[i]);
         sum_squared += dist * dist;
     }
 
-    return std::sqrt(sum_squared / coordinatesSrc.size());
+    return std::sqrt(sum_squared / count);
 }
 
 /* Inlier ratio: proportion of points within distance threshold */
@@ -437,13 +475,18 @@ double inlierRatio(const PointCloudPtr& srcPointCloudPtr, const PointCloudPtr& t
     auto coordinatesSrcTransformed = Get3DCoordinatesXYZ(transformedSrcPointCloudPtr);
 
     int inliers = 0;
-    for (size_t i = 0; i < coordinatesSrc.size(); ++i) {
+    size_t count = coordinatesSrc.size();
+
+#ifdef _OPENMP
+    #pragma omp parallel for reduction(+:inliers)
+#endif
+    for (size_t i = 0; i < count; ++i) {
         if (distance(coordinatesSrc[i], coordinatesSrcTransformed[i]) < threshold) {
             inliers++;
         }
     }
 
-    return static_cast<double>(inliers) / coordinatesSrc.size();
+    return static_cast<double>(inliers) / count;
 }
 
 /* Precision: proportion of correspondences that are correct (within threshold) */
@@ -519,6 +562,14 @@ void fullRegistration(const std::string &fullParametersFilename,
         std::cout << "\nVisualizer parameter : " << pipelineSettings.getValue(VISUALIZER_PARAMETER) << std::endl;
         PointCloudsPtrOutput = fullPipelineHarris(parametersList, seedRef, seedSource,
                                                    seedCustomRotation, pipelineSettings);
+    } else if (pipelineType == "iss") {
+        std::cout << "\nVisualizer parameter : " << pipelineSettings.getValue(VISUALIZER_PARAMETER) << std::endl;
+        PointCloudsPtrOutput = fullPipelineISS(parametersList, seedRef, seedSource,
+                                                seedCustomRotation, pipelineSettings);
+    } else if (pipelineType == "shot") {
+        std::cout << "\nVisualizer parameter : " << pipelineSettings.getValue(VISUALIZER_PARAMETER) << std::endl;
+        PointCloudsPtrOutput = fullPipelineShot(parametersList, seedRef, seedSource,
+                                                 seedCustomRotation, pipelineSettings);
     } else {
         std::cout << "===ERROR=== aborting: pipelineType not recognized: " << pipelineType << std::endl;
         return;

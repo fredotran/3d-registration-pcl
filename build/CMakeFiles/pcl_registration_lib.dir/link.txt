@@ -1,0 +1,2 @@
+/usr/bin/ar qc libpcl_registration_lib.a  CMakeFiles/pcl_registration_lib.dir/src/parameters.cpp.o
+/usr/bin/ranlib libpcl_registration_lib.a

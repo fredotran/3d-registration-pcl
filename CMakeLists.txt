@@ -12,6 +12,7 @@ option(BUILD_EXAMPLES "Build example executables" ON)
 option(BUILD_TOOLS "Build utility tools" ON)
 option(BUILD_BENCHMARKS "Build benchmark executables" OFF)
 option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
+option(USE_OPENMP "Enable OpenMP parallelization" ON)
 
 # Compiler warnings
 if(MSVC)
@@ -29,6 +30,16 @@ endif()
 # Find PCL
 find_package(PCL 1.7 REQUIRED COMPONENTS common io filters features registration visualization)
 
+# Find OpenMP (optional)
+if(USE_OPENMP)
+    find_package(OpenMP)
+    if(OpenMP_FOUND)
+        message(STATUS "OpenMP found - parallelization enabled")
+    else()
+        message(WARNING "OpenMP not found - parallelization disabled")
+    endif()
+endif()
+
 # Include directories
 include_directories(${PCL_INCLUDE_DIRS})
 include_directories(${CMAKE_SOURCE_DIR}/include)
@@ -36,12 +47,20 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 # Add PCL definitions
 add_definitions(${PCL_DEFINITIONS})
 
+# OpenMP definitions
+if(OpenMP_FOUND)
+    add_definitions(-DOPENMP_AVAILABLE)
+endif()
+
 # Create library target for common code
 add_library(pcl_registration_lib
     src/parameters.cpp
 )
 
 target_link_libraries(pcl_registration_lib ${PCL_LIBRARIES})
+if(OpenMP_FOUND)
+    target_link_libraries(pcl_registration_lib OpenMP::OpenMP_CXX)
+endif()
 target_include_directories(pcl_registration_lib PUBLIC
     ${CMAKE_SOURCE_DIR}/include
     ${PCL_INCLUDE_DIRS}
@@ -127,3 +146,7 @@ message(STATUS "  Build Examples: ${BUILD_EXAMPLES}")
 message(STATUS "  Build Tools: ${BUILD_TOOLS}")
 message(STATUS "  Build Benchmarks: ${BUILD_BENCHMARKS}")
 message(STATUS "  Warnings as Errors: ${WARNINGS_AS_ERRORS}")
+message(STATUS "  OpenMP Enabled: ${USE_OPENMP}")
+if(OpenMP_FOUND)
+    message(STATUS "  OpenMP CXX Flags: ${OpenMP_CXX_FLAGS}")
+endif()

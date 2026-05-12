@@ -36,6 +36,8 @@
 #include <pcl/features/normal_3d_omp.h>
 #include <pcl/features/fpfh.h>
 #include <pcl/features/fpfh_omp.h>
+#include <pcl/features/shot.h>
+#include <pcl/features/shot_omp.h>
 
 // Detectors
 #include <pcl/keypoints/sift_keypoint.h>
@@ -69,6 +71,9 @@ using PointCloudPtr = pcl::PointCloud<pcl::PointXYZ>::Ptr;
 
 using LocalDescriptorFPFH = pcl::FPFHSignature33;
 using LocalDescriptorFPFHPtr = pcl::PointCloud<LocalDescriptorFPFH>::Ptr;
+
+using LocalDescriptorSHOT = pcl::SHOT352;
+using LocalDescriptorSHOTPtr = pcl::PointCloud<LocalDescriptorSHOT>::Ptr;
 
 using StringMap = std::map<std::string, std::string>;
 using DoubleMap = std::map<std::string, double>;
@@ -105,6 +110,7 @@ constexpr const char* SACIA_NUM_ITERATIONS = "sacia.numIterations";
 constexpr const char* SACIA_NUM_SAMPLES = "sacia.numSamplesPerIter";
 constexpr const char* NORMALS_SEARCH_RADIUS = "normals.searchRadius";
 constexpr const char* FPFH_SEARCH_RADIUS = "fpfh.searchRadius";
+constexpr const char* SHOT_SEARCH_RADIUS = "shot.searchRadius";
 constexpr const char* HARRIS_SEARCH_RADIUS = "harris.searchRadius";
 constexpr const char* HARRIS_THRESHOLD = "harris.threshold";
 constexpr const char* BRISK_THRESHOLD = "brisk.threshold";

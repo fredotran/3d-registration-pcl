@@ -6,6 +6,7 @@ Settings getPipelineDefaultSettings()
 
     settings.setValue(NORMALS_SEARCH_RADIUS, 2.0);
     settings.setValue(FPFH_SEARCH_RADIUS, 2.0);
+    settings.setValue(SHOT_SEARCH_RADIUS, 2.0);
     settings.setValue(HARRIS_SEARCH_RADIUS, 2.0);
     settings.setValue(HARRIS_THRESHOLD, 1e-6);
     settings.setValue(SIFT_MIN_SCALE_SOURCE, 0.1);
