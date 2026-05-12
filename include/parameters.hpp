@@ -29,6 +29,7 @@
 #include <pcl/filters/filter.h>
 #include <pcl/filters/crop_box.h>
 #include <pcl/filters/extract_indices.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 
 // Descriptors
 #include <pcl/features/normal_3d.h>
@@ -46,6 +47,9 @@
 #include <pcl/registration/icp.h>
 #include <pcl/registration/icp_nl.h>
 #include <pcl/registration/sample_consensus_prerejective.h>
+
+// Additional detectors
+#include <pcl/keypoints/iss_3d.h>
 
 // Visualization
 #include <pcl/visualization/pcl_visualizer.h>
@@ -75,6 +79,9 @@ using PipelineSiftOutput = std::tuple<PointCloudPtr, PointCloudPtr, PointCloudPt
 using PipelineHarrisOutput = std::tuple<PointCloudPtr, PointCloudPtr, PointCloudPtr,
                                           PtCloudPointWithIntensityPtr, PtCloudPointWithIntensityPtr,
                                           Eigen::Matrix4f>;
+using PipelineISSOutput = std::tuple<PointCloudPtr, PointCloudPtr, PointCloudPtr,
+                                      PtCloudPointWithScalePtr, PtCloudPointWithScalePtr,
+                                      Eigen::Matrix4f>;
 using PipelineAllPointsOutput = std::tuple<PointCloudPtr, PointCloudPtr, PointCloudPtr,
                                             Eigen::Matrix4f>;
 
@@ -88,6 +95,7 @@ using VectorPointXYZ = std::vector<pcl::PointXYZ>;
 // Pipeline output types (named as in original code - these are tuple types, not pointers)
 using pipelineSiftOutputPtr = PipelineSiftOutput;
 using pipelineHarrisOutputPtr = PipelineHarrisOutput;
+using pipelineISSOutputPtr = PipelineISSOutput;
 using pipelineAllPointsOutputPtr = PipelineAllPointsOutput;
 
 // PARAMETER NAMES
@@ -109,5 +117,20 @@ constexpr const char* SIFT_NUM_SCALES_PER_OCTAVE_TARGET = "sift.numScalesPerOcta
 constexpr const char* SIFT_MIN_CONTRAST_SOURCE = "sift.minContrastSource";
 constexpr const char* SIFT_MIN_CONTRAST_TARGET = "sift.minContrastTarget";
 constexpr const char* VISUALIZER_PARAMETER = "visualizer.parameter";
+
+// ICP parameters
+constexpr const char* ICP_MAX_CORRESPONDENCE_DIST = "icp.maxCorrespondenceDist";
+constexpr const char* ICP_MAX_ITERATIONS = "icp.maxIterations";
+constexpr const char* ICP_TRANSFORMATION_EPSILON = "icp.transformationEpsilon";
+constexpr const char* ICP_EUCLIDEAN_EPSILON = "icp.euclideanFitnessEpsilon";
+constexpr const char* ICP_ENABLED = "icp.enabled";
+
+// ISS detector parameters
+constexpr const char* ISS_SALIENT_RADIUS = "iss.salientRadius";
+constexpr const char* ISS_NON_MAX_RADIUS = "iss.nonMaxRadius";
+constexpr const char* ISS_THRESHOLD_21 = "iss.threshold21";
+constexpr const char* ISS_THRESHOLD_32 = "iss.threshold32";
+constexpr const char* ISS_MIN_NEIGHBORS = "iss.minNeighbors";
+constexpr const char* ISS_ENABLED = "iss.enabled";
 
 Settings getPipelineDefaultSettings();

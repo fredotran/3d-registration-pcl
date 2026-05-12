@@ -53,6 +53,11 @@ PtCloudPointWithScalePtr computeBRISK2DKeypoints(
     pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr,
     double threshold_brisk);
 
+PtCloudPointWithScalePtr computeISSKeypoints(
+    pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr,
+    double salient_radius, double non_max_radius,
+    double threshold_21, double threshold_32, int min_neighbors);
+
 // Searching methods
 Eigen::Matrix4f computeSACInitialAlignment(
     PtCloudPointWithScalePtr& sourceKeypointsPtr,
@@ -76,10 +81,18 @@ Eigen::Matrix4f computeSACInitialAlignment(
     float min_sample_distance, float max_correspondence_dist,
     int nr_iters, int nr_samples);
 
+// ICP fine registration
+Eigen::Matrix4f computeICP(
+    PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr,
+    float max_correspondence_dist, int max_iterations,
+    float transformation_epsilon, float euclidean_fitness_epsilon);
+
 // Full pipelines
 pipelineSiftOutputPtr siftPipeline(
     PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Settings settings);
 pipelineHarrisOutputPtr harrisPipeline(
+    PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Settings settings);
+pipelineISSOutputPtr issPipeline(
     PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Settings settings);
 pipelineAllPointsOutputPtr pipelineAllPoints(
     PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Settings settings);
@@ -267,6 +280,30 @@ public:
         std::cout << "Time of detection : " << watch.getTimeSeconds() << "sec" << std::endl;
         return intensityBriskKeypointsPtr;
     }
+
+    // ISS 3D Detector
+    PtCloudPointWithScalePtr computeISSKeypoints(
+        pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr,
+        double salient_radius, double non_max_radius,
+        double threshold_21, double threshold_32, int min_neighbors)
+    {
+        pcl::ISSKeypoint3D<pcl::PointNormal, PointWithScale> iss;
+        auto issKeypointsPtr = PtCloudPointWithScalePtr(new PtCloudPointWithScale);
+        pcl::search::KdTree<pcl::PointNormal>::Ptr treeIssKeypoints(new pcl::search::KdTree<pcl::PointNormal>());
+        std::cout << "\n- Step 2 : Computing ISS keypoints from normals... " << std::endl;
+        iss.setSearchMethod(treeIssKeypoints);
+        iss.setSalientRadius(salient_radius);
+        iss.setNonMaxRadius(non_max_radius);
+        iss.setThreshold21(threshold_21);
+        iss.setThreshold32(threshold_32);
+        iss.setMinNeighbors(min_neighbors);
+        iss.setInputCloud(inputCloudNormalsPtr);
+        pcl::StopWatch watch;
+        iss.compute(*issKeypointsPtr);
+        std::cout << "Resulting ISS points are of size : " << issKeypointsPtr->size() << std::endl;
+        std::cout << "Time of detection : " << watch.getTimeSeconds() << "sec" << std::endl;
+        return issKeypointsPtr;
+    }
 };
 
 ///////////////////////////////
@@ -363,6 +400,39 @@ public:
             min_sample_distance, max_correspondence_dist,
             nr_iters, nr_samples, "all points");
     }
+
+    // ICP fine registration
+    Eigen::Matrix4f computeICP(
+        PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr,
+        float max_correspondence_dist, int max_iterations,
+        float transformation_epsilon, float euclidean_fitness_epsilon)
+    {
+        pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
+        pcl::PointCloud<pcl::PointXYZ> registration_output;
+
+        icp.setInputSource(sourceCloudPtr);
+        icp.setInputTarget(targetCloudPtr);
+        icp.setMaxCorrespondenceDistance(max_correspondence_dist);
+        icp.setMaximumIterations(max_iterations);
+        icp.setTransformationEpsilon(transformation_epsilon);
+        icp.setEuclideanFitnessEpsilon(euclidean_fitness_epsilon);
+
+        pcl::StopWatch watch;
+        std::cout << "\n- Step 5 : Starting ICP fine registration...\n";
+        icp.align(registration_output);
+
+        bool converged = icp.hasConverged();
+        std::cout << "\nThe ICP " << (converged ? "has" : "has NOT") << " converged !" << std::endl;
+
+        Eigen::Matrix4f final_transformation = icp.getFinalTransformation();
+        float fitness_score = icp.getFitnessScore(max_correspondence_dist);
+
+        std::cout << "Time of ICP alignment : " << watch.getTimeSeconds() << "sec" << std::endl;
+        std::cout << "ICP transformation\n" << final_transformation << std::endl;
+        std::cout << "ICP fitness score : " << fitness_score << std::endl;
+
+        return final_transformation;
+    }
 };
 
 ///////////////////////////////
@@ -406,15 +476,39 @@ pipelineSiftOutputPtr siftPipeline(
 
     std::cout << "numSamples = " << numSamples << std::endl;
 
-    auto final_transformation_sift = sac.computeSACInitialAlignment(
+    auto coarse_transformation = sac.computeSACInitialAlignment(
         sourceSiftKeypointsPtr, targetSiftKeypointsPtr,
         sourceFPFHSift, targetFPFHSift,
         minSampleDist, maxCorrespondDist, numIterations, numSamples);
 
-    auto transformedCloudPtr = PointCloudPtr(new PointCloud);
-    pcl::transformPointCloud(*sourceCloudPtr, *transformedCloudPtr, final_transformation_sift);
+    // Apply coarse transformation
+    auto coarseTransformedCloudPtr = PointCloudPtr(new PointCloud);
+    pcl::transformPointCloud(*sourceCloudPtr, *coarseTransformedCloudPtr, coarse_transformation);
 
-    return {sourceCloudPtr, targetCloudPtr, transformedCloudPtr, sourceSiftKeypointsPtr, targetSiftKeypointsPtr, final_transformation_sift};
+    // Optional ICP fine registration
+    Eigen::Matrix4f final_transformation = coarse_transformation;
+    bool icp_enabled = false;
+    if (settings.exists(ICP_ENABLED) && settings.getValue(ICP_ENABLED) > 0.5) {
+        icp_enabled = true;
+        double icpMaxCorrespondDist = settings.getValue(ICP_MAX_CORRESPONDENCE_DIST);
+        int icpMaxIterations = static_cast<int>(std::lround(settings.getValue(ICP_MAX_ITERATIONS)));
+        double icpTransformEpsilon = settings.getValue(ICP_TRANSFORMATION_EPSILON);
+        double icpEuclideanEpsilon = settings.getValue(ICP_EUCLIDEAN_EPSILON);
+
+        SearchingMethods searching;
+        Eigen::Matrix4f icp_transformation = searching.computeICP(
+            coarseTransformedCloudPtr, targetCloudPtr,
+            icpMaxCorrespondDist, icpMaxIterations,
+            icpTransformEpsilon, icpEuclideanEpsilon);
+
+        // Combine transformations: final = icp * coarse
+        final_transformation = icp_transformation * coarse_transformation;
+    }
+
+    auto transformedCloudPtr = PointCloudPtr(new PointCloud);
+    pcl::transformPointCloud(*sourceCloudPtr, *transformedCloudPtr, final_transformation);
+
+    return {sourceCloudPtr, targetCloudPtr, transformedCloudPtr, sourceSiftKeypointsPtr, targetSiftKeypointsPtr, final_transformation};
 }
 
 pipelineHarrisOutputPtr harrisPipeline(
@@ -444,15 +538,108 @@ pipelineHarrisOutputPtr harrisPipeline(
     int numIterations = static_cast<int>(std::lround(settings.getValue(SACIA_NUM_ITERATIONS)));
     int numSamples = static_cast<int>(std::lround(settings.getValue(SACIA_NUM_SAMPLES)));
 
-    auto final_transformation_harris = sac.computeSACInitialAlignment(
+    auto coarse_transformation = sac.computeSACInitialAlignment(
         srcIntensityHarrisKeypointsPtr, trgIntensityHarrisKeypointsPtr,
         sourceFPFHHarris, targetFPFHHarris,
         minSampleDist, maxCorrespondDist, numIterations, numSamples);
 
-    auto transformedCloudPtr = PointCloudPtr(new PointCloud);
-    pcl::transformPointCloud(*sourceCloudPtr, *transformedCloudPtr, final_transformation_harris);
+    // Apply coarse transformation
+    auto coarseTransformedCloudPtr = PointCloudPtr(new PointCloud);
+    pcl::transformPointCloud(*sourceCloudPtr, *coarseTransformedCloudPtr, coarse_transformation);
 
-    return {sourceCloudPtr, targetCloudPtr, transformedCloudPtr, srcIntensityHarrisKeypointsPtr, trgIntensityHarrisKeypointsPtr, final_transformation_harris};
+    // Optional ICP fine registration
+    Eigen::Matrix4f final_transformation = coarse_transformation;
+    bool icp_enabled = false;
+    if (settings.exists(ICP_ENABLED) && settings.getValue(ICP_ENABLED) > 0.5) {
+        icp_enabled = true;
+        double icpMaxCorrespondDist = settings.getValue(ICP_MAX_CORRESPONDENCE_DIST);
+        int icpMaxIterations = static_cast<int>(std::lround(settings.getValue(ICP_MAX_ITERATIONS)));
+        double icpTransformEpsilon = settings.getValue(ICP_TRANSFORMATION_EPSILON);
+        double icpEuclideanEpsilon = settings.getValue(ICP_EUCLIDEAN_EPSILON);
+
+        SearchingMethods searching;
+        Eigen::Matrix4f icp_transformation = searching.computeICP(
+            coarseTransformedCloudPtr, targetCloudPtr,
+            icpMaxCorrespondDist, icpMaxIterations,
+            icpTransformEpsilon, icpEuclideanEpsilon);
+
+        // Combine transformations: final = icp * coarse
+        final_transformation = icp_transformation * coarse_transformation;
+    }
+
+    auto transformedCloudPtr = PointCloudPtr(new PointCloud);
+    pcl::transformPointCloud(*sourceCloudPtr, *transformedCloudPtr, final_transformation);
+
+    return {sourceCloudPtr, targetCloudPtr, transformedCloudPtr, srcIntensityHarrisKeypointsPtr, trgIntensityHarrisKeypointsPtr, final_transformation};
+}
+
+pipelineISSOutputPtr issPipeline(
+    PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr, Settings settings)
+{
+    double normalsSearchRadius = settings.getValue(NORMALS_SEARCH_RADIUS);
+
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormals(new pcl::search::KdTree<pcl::PointXYZ>);
+    auto sourceNormalsPtr = computePointNormals(sourceCloudPtr, treeNormals, normalsSearchRadius);
+    auto targetNormalsPtr = computePointNormals(targetCloudPtr, treeNormals, normalsSearchRadius);
+
+    Detector detector;
+    double issSalientRadius = settings.getValue(ISS_SALIENT_RADIUS);
+    double issNonMaxRadius = settings.getValue(ISS_NON_MAX_RADIUS);
+    double issThreshold21 = settings.getValue(ISS_THRESHOLD_21);
+    double issThreshold32 = settings.getValue(ISS_THRESHOLD_32);
+    int issMinNeighbors = static_cast<int>(std::lround(settings.getValue(ISS_MIN_NEIGHBORS)));
+
+    auto sourceISSKeypointsPtr = detector.computeISSKeypoints(
+        sourceNormalsPtr, issSalientRadius, issNonMaxRadius,
+        issThreshold21, issThreshold32, issMinNeighbors);
+    auto targetISSKeypointsPtr = detector.computeISSKeypoints(
+        targetNormalsPtr, issSalientRadius, issNonMaxRadius,
+        issThreshold21, issThreshold32, issMinNeighbors);
+
+    Descriptor descriptor;
+    double fpfhSearchRadius = settings.getValue(FPFH_SEARCH_RADIUS);
+    auto sourceFPFHISS = descriptor.computeFPFH(sourceCloudPtr, sourceNormalsPtr, sourceISSKeypointsPtr, treeNormals, fpfhSearchRadius);
+    auto targetFPFHISS = descriptor.computeFPFH(targetCloudPtr, targetNormalsPtr, targetISSKeypointsPtr, treeNormals, fpfhSearchRadius);
+
+    SearchingMethods sac;
+    double minSampleDist = settings.getValue(SACIA_MIN_SAMPLE_DIST);
+    double maxCorrespondDist = settings.getValue(SACIA_MAX_CORRESPONDENCE_DIST);
+    int numIterations = static_cast<int>(std::lround(settings.getValue(SACIA_NUM_ITERATIONS)));
+    int numSamples = static_cast<int>(std::lround(settings.getValue(SACIA_NUM_SAMPLES)));
+
+    auto coarse_transformation = sac.computeSACInitialAlignment(
+        sourceISSKeypointsPtr, targetISSKeypointsPtr,
+        sourceFPFHISS, targetFPFHISS,
+        minSampleDist, maxCorrespondDist, numIterations, numSamples);
+
+    // Apply coarse transformation
+    auto coarseTransformedCloudPtr = PointCloudPtr(new PointCloud);
+    pcl::transformPointCloud(*sourceCloudPtr, *coarseTransformedCloudPtr, coarse_transformation);
+
+    // Optional ICP fine registration
+    Eigen::Matrix4f final_transformation = coarse_transformation;
+    bool icp_enabled = false;
+    if (settings.exists(ICP_ENABLED) && settings.getValue(ICP_ENABLED) > 0.5) {
+        icp_enabled = true;
+        double icpMaxCorrespondDist = settings.getValue(ICP_MAX_CORRESPONDENCE_DIST);
+        int icpMaxIterations = static_cast<int>(std::lround(settings.getValue(ICP_MAX_ITERATIONS)));
+        double icpTransformEpsilon = settings.getValue(ICP_TRANSFORMATION_EPSILON);
+        double icpEuclideanEpsilon = settings.getValue(ICP_EUCLIDEAN_EPSILON);
+
+        SearchingMethods searching;
+        Eigen::Matrix4f icp_transformation = searching.computeICP(
+            coarseTransformedCloudPtr, targetCloudPtr,
+            icpMaxCorrespondDist, icpMaxIterations,
+            icpTransformEpsilon, icpEuclideanEpsilon);
+
+        // Combine transformations: final = icp * coarse
+        final_transformation = icp_transformation * coarse_transformation;
+    }
+
+    auto transformedCloudPtr = PointCloudPtr(new PointCloud);
+    pcl::transformPointCloud(*sourceCloudPtr, *transformedCloudPtr, final_transformation);
+
+    return {sourceCloudPtr, targetCloudPtr, transformedCloudPtr, sourceISSKeypointsPtr, targetISSKeypointsPtr, final_transformation};
 }
 
 pipelineAllPointsOutputPtr pipelineAllPoints(
@@ -475,10 +662,34 @@ pipelineAllPointsOutputPtr pipelineAllPoints(
     int numIterations = static_cast<int>(std::lround(settings.getValue(SACIA_NUM_ITERATIONS)));
     int numSamples = static_cast<int>(std::lround(settings.getValue(SACIA_NUM_SAMPLES)));
 
-    auto final_transformation = sac.computeSACInitialAlignment(
+    auto coarse_transformation = sac.computeSACInitialAlignment(
         sourceCloudPtr, targetCloudPtr,
         sourceFPFHAll, targetFPFHAll,
         minSampleDist, maxCorrespondDist, numIterations, numSamples);
+
+    // Apply coarse transformation
+    auto coarseTransformedCloudPtr = PointCloudPtr(new PointCloud);
+    pcl::transformPointCloud(*sourceCloudPtr, *coarseTransformedCloudPtr, coarse_transformation);
+
+    // Optional ICP fine registration
+    Eigen::Matrix4f final_transformation = coarse_transformation;
+    bool icp_enabled = false;
+    if (settings.exists(ICP_ENABLED) && settings.getValue(ICP_ENABLED) > 0.5) {
+        icp_enabled = true;
+        double icpMaxCorrespondDist = settings.getValue(ICP_MAX_CORRESPONDENCE_DIST);
+        int icpMaxIterations = static_cast<int>(std::lround(settings.getValue(ICP_MAX_ITERATIONS)));
+        double icpTransformEpsilon = settings.getValue(ICP_TRANSFORMATION_EPSILON);
+        double icpEuclideanEpsilon = settings.getValue(ICP_EUCLIDEAN_EPSILON);
+
+        SearchingMethods searching;
+        Eigen::Matrix4f icp_transformation = searching.computeICP(
+            coarseTransformedCloudPtr, targetCloudPtr,
+            icpMaxCorrespondDist, icpMaxIterations,
+            icpTransformEpsilon, icpEuclideanEpsilon);
+
+        // Combine transformations: final = icp * coarse
+        final_transformation = icp_transformation * coarse_transformation;
+    }
 
     auto transformedCloudPtr = PointCloudPtr(new PointCloud);
     pcl::transformPointCloud(*sourceCloudPtr, *transformedCloudPtr, final_transformation);

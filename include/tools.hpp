@@ -24,6 +24,9 @@ Eigen::Affine3f customTranslation(PointCloudPtr sourcePointCloudPtr,
                                    Eigen::Affine3f inputTransformationMatrix,
                                    float trans_x, float trans_y, float trans_z);
 
+// Outlier rejection and robustness
+PointCloudPtr statisticalOutlierRemoval(PointCloudPtr inputCloud, int meanK, double stddevMult);
+
 // Compute point clouds and processing
 PointCloudPtr cropPointCloud(PointCloudPtr cloudPtr,
                               PointCloudPtr cloudOutPtr,
@@ -148,6 +151,24 @@ Eigen::Affine3f customTranslation(PointCloudPtr sourcePointCloudPtr,
 {
     inputTransformationMatrix.translation() << trans_x, trans_y, trans_z;
     return inputTransformationMatrix;
+}
+
+/* Statistical outlier removal for robustness */
+PointCloudPtr statisticalOutlierRemoval(PointCloudPtr inputCloud, int meanK, double stddevMult)
+{
+    pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
+    auto filteredCloud = PointCloudPtr(new PointCloud);
+
+    sor.setInputCloud(inputCloud);
+    sor.setMeanK(meanK);
+    sor.setStddevMulThresh(stddevMult);
+    sor.filter(*filteredCloud);
+
+    std::cout << "Statistical outlier removal: " << inputCloud->size() << " -> "
+              << filteredCloud->size() << " points (removed "
+              << inputCloud->size() - filteredCloud->size() << " outliers)" << std::endl;
+
+    return filteredCloud;
 }
 
 /* Returns the cropped point cloud based on specified x/y cutout limits */
@@ -394,6 +415,63 @@ double meanTargetRegistrationError(const PointCloudPtr& srcPointCloudPtr, const 
     return std::accumulate(norms.begin(), norms.end(), 0.0) / norms.size();
 }
 
+/* Root Mean Square Error (RMSE) for registration quality */
+double rootMeanSquareError(const PointCloudPtr& srcPointCloudPtr, const PointCloudPtr& transformedSrcPointCloudPtr)
+{
+    auto coordinatesSrc = Get3DCoordinatesXYZ(srcPointCloudPtr);
+    auto coordinatesSrcTransformed = Get3DCoordinatesXYZ(transformedSrcPointCloudPtr);
+
+    double sum_squared = 0.0;
+    for (size_t i = 0; i < coordinatesSrc.size(); ++i) {
+        double dist = distance(coordinatesSrc[i], coordinatesSrcTransformed[i]);
+        sum_squared += dist * dist;
+    }
+
+    return std::sqrt(sum_squared / coordinatesSrc.size());
+}
+
+/* Inlier ratio: proportion of points within distance threshold */
+double inlierRatio(const PointCloudPtr& srcPointCloudPtr, const PointCloudPtr& transformedSrcPointCloudPtr, double threshold)
+{
+    auto coordinatesSrc = Get3DCoordinatesXYZ(srcPointCloudPtr);
+    auto coordinatesSrcTransformed = Get3DCoordinatesXYZ(transformedSrcPointCloudPtr);
+
+    int inliers = 0;
+    for (size_t i = 0; i < coordinatesSrc.size(); ++i) {
+        if (distance(coordinatesSrc[i], coordinatesSrcTransformed[i]) < threshold) {
+            inliers++;
+        }
+    }
+
+    return static_cast<double>(inliers) / coordinatesSrc.size();
+}
+
+/* Precision: proportion of correspondences that are correct (within threshold) */
+double computePrecision(const PointCloudPtr& srcPointCloudPtr, const PointCloudPtr& transformedSrcPointCloudPtr, double threshold)
+{
+    return inlierRatio(srcPointCloudPtr, transformedSrcPointCloudPtr, threshold);
+}
+
+/* Recall: proportion of ground truth correspondences recovered (simplified as inlier ratio for this context) */
+double computeRecall(const PointCloudPtr& srcPointCloudPtr, const PointCloudPtr& transformedSrcPointCloudPtr, double threshold)
+{
+    // In this context without explicit ground truth correspondences, recall is approximated
+    // by the inlier ratio assuming most points should be aligned
+    return inlierRatio(srcPointCloudPtr, transformedSrcPointCloudPtr, threshold);
+}
+
+/* F1 score: harmonic mean of precision and recall */
+double computeF1Score(const PointCloudPtr& srcPointCloudPtr, const PointCloudPtr& transformedSrcPointCloudPtr, double threshold)
+{
+    double precision = computePrecision(srcPointCloudPtr, transformedSrcPointCloudPtr, threshold);
+    double recall = computeRecall(srcPointCloudPtr, transformedSrcPointCloudPtr, threshold);
+
+    if (precision + recall < 1e-10) {
+        return 0.0;
+    }
+    return 2.0 * precision * recall / (precision + recall);
+}
+
 /* Append current time stamp to provided filename (after stripping any extension) */
 std::string appendTimestamp(const std::string& filename)
 {
@@ -459,6 +537,22 @@ void fullRegistration(const std::string &fullParametersFilename,
     std::cout << "[" << pipelineType << "] Mean Target Registration Error between original source and transformed cloud: "
               << mtre << std::endl;
 
+    // Calculate RMSE
+    double rmse = rootMeanSquareError(sourceCloudPtr, transformedCloudPtr);
+    std::cout << "[" << pipelineType << "] Root Mean Square Error: " << rmse << std::endl;
+
+    // Calculate inlier ratio and precision/recall metrics
+    double inlier_threshold = 1.0; // 1 meter threshold for inliers
+    double inlier_ratio = inlierRatio(sourceCloudPtr, transformedCloudPtr, inlier_threshold);
+    double precision = computePrecision(sourceCloudPtr, transformedCloudPtr, inlier_threshold);
+    double recall = computeRecall(sourceCloudPtr, transformedCloudPtr, inlier_threshold);
+    double f1_score = computeF1Score(sourceCloudPtr, transformedCloudPtr, inlier_threshold);
+
+    std::cout << "[" << pipelineType << "] Inlier ratio (threshold=" << inlier_threshold << "m): " << inlier_ratio << std::endl;
+    std::cout << "[" << pipelineType << "] Precision: " << precision << std::endl;
+    std::cout << "[" << pipelineType << "] Recall: " << recall << std::endl;
+    std::cout << "[" << pipelineType << "] F1 Score: " << f1_score << std::endl;
+
     // Calculate the Registration error bias
     auto bias = registrationErrorBias(sourceCloudPtr, transformedCloudPtr);
     double bias_x, bias_y, bias_z;
@@ -475,6 +569,11 @@ void fullRegistration(const std::string &fullParametersFilename,
     StringMap settingsMap;
     settingsMap["pipelineType"] = pipelineType;
     settingsMap["err_MTRE"] = std::to_string(mtre);
+    settingsMap["err_RMSE"] = std::to_string(rmse);
+    settingsMap["err_inlier_ratio"] = std::to_string(inlier_ratio);
+    settingsMap["err_precision"] = std::to_string(precision);
+    settingsMap["err_recall"] = std::to_string(recall);
+    settingsMap["err_f1_score"] = std::to_string(f1_score);
     settingsMap["err_bias_x"] = std::to_string(bias_x);
     settingsMap["err_bias_y"] = std::to_string(bias_y);
     settingsMap["err_bias_z"] = std::to_string(bias_z);

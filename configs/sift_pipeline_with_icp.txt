@@ -1,0 +1,48 @@
+# SIFT Pipeline with ICP Fine Registration
+# This configuration enables ICP for improved registration accuracy
+
+pipelineType=sift
+typeTransformation=rotation
+surface_model_data_file=../data/reference_LM.pcd
+x_uncertainty=5.0
+y_uncertainty=5.0
+sourceWidth=100.0
+sourceHeight=100.0
+x_angle_min=-10.0
+x_angle_max=10.0
+y_angle_min=-10.0
+y_angle_max=10.0
+z_angle_min=-10.0
+z_angle_max=10.0
+
+# ICP Parameters (enabled)
+icp.enabled=1.0
+icp.maxCorrespondenceDist=0.5
+icp.maxIterations=50
+icp.transformationEpsilon=1e-6
+icp.euclideanFitnessEpsilon=1e-6
+
+# Normal estimation
+normals.searchRadius=2.0
+
+# FPFH descriptor
+fpfh.searchRadius=2.0
+
+# SIFT detector parameters
+sift.minScaleSource=0.1
+sift.minScaleTarget=0.1
+sift.numOctavesSource=6.0
+sift.numOctavesTarget=6.0
+sift.numScalesPerOctaveSource=4.0
+sift.numScalesPerOctaveTarget=4.0
+sift.minContrastSource=0.001
+sift.minContrastTarget=0.001
+
+# SAC-IA parameters
+sacia.minSampleDist=3.0
+sacia.maxCorrDist=4.0
+sacia.numIterations=400.0
+sacia.numSamplesPerIter=3.0
+
+# Visualization
+visualizer.parameter=0.0

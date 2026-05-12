@@ -23,5 +23,20 @@ Settings getPipelineDefaultSettings()
     settings.setValue(VISUALIZER_PARAMETER, 0.0);
     settings.setValue(BRISK_THRESHOLD, 0.0);
 
+    // ICP parameters (disabled by default)
+    settings.setValue(ICP_ENABLED, 0.0);
+    settings.setValue(ICP_MAX_CORRESPONDENCE_DIST, 0.5);
+    settings.setValue(ICP_MAX_ITERATIONS, 50.0);
+    settings.setValue(ICP_TRANSFORMATION_EPSILON, 1e-6);
+    settings.setValue(ICP_EUCLIDEAN_EPSILON, 1e-6);
+
+    // ISS detector parameters
+    settings.setValue(ISS_SALIENT_RADIUS, 2.0);
+    settings.setValue(ISS_NON_MAX_RADIUS, 4.0);
+    settings.setValue(ISS_THRESHOLD_21, 0.975);
+    settings.setValue(ISS_THRESHOLD_32, 0.975);
+    settings.setValue(ISS_MIN_NEIGHBORS, 5.0);
+    settings.setValue(ISS_ENABLED, 0.0);
+
     return settings;
 }
