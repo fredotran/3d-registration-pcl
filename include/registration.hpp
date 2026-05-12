@@ -412,9 +412,7 @@ pipelineSiftOutputPtr siftPipeline(
         minSampleDist, maxCorrespondDist, numIterations, numSamples);
 
     auto transformedCloudPtr = PointCloudPtr(new PointCloud);
-    auto newSrcPtCloudPtr = PointCloudPtr(new PointCloud);
-    copyPointCloud(*sourceCloudPtr, *newSrcPtCloudPtr);
-    pcl::transformPointCloud(*newSrcPtCloudPtr, *transformedCloudPtr, final_transformation_sift);
+    pcl::transformPointCloud(*sourceCloudPtr, *transformedCloudPtr, final_transformation_sift);
 
     return {sourceCloudPtr, targetCloudPtr, transformedCloudPtr, sourceSiftKeypointsPtr, targetSiftKeypointsPtr, final_transformation_sift};
 }
@@ -452,9 +450,7 @@ pipelineHarrisOutputPtr harrisPipeline(
         minSampleDist, maxCorrespondDist, numIterations, numSamples);
 
     auto transformedCloudPtr = PointCloudPtr(new PointCloud);
-    auto newSrcPtCloudPtr = PointCloudPtr(new PointCloud);
-    copyPointCloud(*sourceCloudPtr, *newSrcPtCloudPtr);
-    pcl::transformPointCloud(*newSrcPtCloudPtr, *transformedCloudPtr, final_transformation_harris);
+    pcl::transformPointCloud(*sourceCloudPtr, *transformedCloudPtr, final_transformation_harris);
 
     return {sourceCloudPtr, targetCloudPtr, transformedCloudPtr, srcIntensityHarrisKeypointsPtr, trgIntensityHarrisKeypointsPtr, final_transformation_harris};
 }
@@ -485,9 +481,7 @@ pipelineAllPointsOutputPtr pipelineAllPoints(
         minSampleDist, maxCorrespondDist, numIterations, numSamples);
 
     auto transformedCloudPtr = PointCloudPtr(new PointCloud);
-    auto newSrcPtCloudPtr = PointCloudPtr(new PointCloud);
-    copyPointCloud(*sourceCloudPtr, *newSrcPtCloudPtr);
-    pcl::transformPointCloud(*newSrcPtCloudPtr, *transformedCloudPtr, final_transformation);
+    pcl::transformPointCloud(*sourceCloudPtr, *transformedCloudPtr, final_transformation);
 
     return {sourceCloudPtr, targetCloudPtr, transformedCloudPtr, final_transformation};
 }

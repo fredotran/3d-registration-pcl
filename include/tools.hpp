@@ -80,18 +80,15 @@ PointCloudPtr correctedPointCloud(PointCloudPtr sourcePointCloudPtr,
                                    Eigen::Vector4f new_centroid,
                                    float theta_x, float theta_y, float theta_z)
 {
-    auto localPointCloudPtr = PointCloudPtr(new PointCloud);
-    copyPointCloud(*sourcePointCloudPtr, *localPointCloudPtr);
-
     // Translation to new centroid
     Eigen::Affine3f transform_translation = Eigen::Affine3f::Identity();
-    pcl::compute3DCentroid(*localPointCloudPtr, centroid);
+    pcl::compute3DCentroid(*sourcePointCloudPtr, centroid);
     transform_translation.translation() = new_centroid.head<3>() - centroid.head<3>();
 
     auto transformed_cloud = PointCloudPtr(new PointCloud);
     std::cout << "Transformation used for the origin correction : \n"
               << transform_translation.matrix() << std::endl;
-    pcl::transformPointCloud(*localPointCloudPtr, *transformed_cloud, transform_translation);
+    pcl::transformPointCloud(*sourcePointCloudPtr, *transformed_cloud, transform_translation);
     std::cout << "\nSource point cloud (white) " << std::endl;
     std::cout << "Corrected coordinates point cloud (green) " << std::endl;
 
@@ -124,18 +121,11 @@ Eigen::Affine3f customRotation(PointCloudPtr sourcePointCloudPtr,
                                 Eigen::Vector4f new_centroid,
                                 float theta_x, float theta_y, float theta_z)
 {
-    auto localPointCloudPtr = PointCloudPtr(new PointCloud);
-    copyPointCloud(*sourcePointCloudPtr, *localPointCloudPtr);
-
     Eigen::Affine3f transform_translation = Eigen::Affine3f::Identity();
-    pcl::compute3DCentroid(*localPointCloudPtr, centroid);
+    pcl::compute3DCentroid(*sourcePointCloudPtr, centroid);
     transform_translation.translation() = new_centroid.head<3>() - centroid.head<3>();
 
-    // Apply translation
-    auto transformed_cloud = PointCloudPtr(new PointCloud);
-    pcl::transformPointCloud(*localPointCloudPtr, *transformed_cloud, transform_translation);
-
-    pcl::compute3DCentroid(*transformed_cloud, new_centroid);
+    pcl::compute3DCentroid(*sourcePointCloudPtr, new_centroid);
     std::cout << "\nNew centroid coordinates (after correction) : \n"
               << new_centroid << std::endl;
 
@@ -156,13 +146,7 @@ Eigen::Affine3f customTranslation(PointCloudPtr sourcePointCloudPtr,
                                    Eigen::Affine3f inputTransformationMatrix,
                                    float trans_x, float trans_y, float trans_z)
 {
-    auto localPointCloudPtr = PointCloudPtr(new PointCloud);
-    copyPointCloud(*sourcePointCloudPtr, *localPointCloudPtr);
-
     inputTransformationMatrix.translation() << trans_x, trans_y, trans_z;
-    auto final_cloud = PointCloudPtr(new PointCloud);
-    pcl::transformPointCloud(*localPointCloudPtr, *final_cloud, inputTransformationMatrix);
-
     return inputTransformationMatrix;
 }
 
@@ -192,7 +176,6 @@ PointCloudPtr computeReferenceCloud(PointCloudPtr surfaceModelCloudPtr, double *
                                      double sourceWidth, double sourceHeight,
                                      double x_uncertainty, double y_uncertainty)
 {
-    auto targetCloudPtr = PointCloudPtr(new PointCloud);
     auto outPointCloudPtr = PointCloudPtr(new PointCloud);
 
     pcl::PointXYZ ref_min_pt, ref_max_pt;
@@ -208,8 +191,7 @@ PointCloudPtr computeReferenceCloud(PointCloudPtr surfaceModelCloudPtr, double *
                    coordRandomizedRef[0], coordRandomizedRef[1],
                    coordRandomizedRef[2], coordRandomizedRef[3]);
 
-    copyPointCloud(*outPointCloudPtr, *targetCloudPtr);
-    return targetCloudPtr;
+    return outPointCloudPtr;
 }
 
 /* Compute source point cloud by cropping the target/reference cloud */
@@ -217,7 +199,6 @@ PointCloudPtr computeSourceCloud(PointCloudPtr targetCloudPtr, double *seed,
                                   double sourceWidth, double sourceHeight,
                                   double x_uncertainty, double y_uncertainty)
 {
-    auto sourceCloudPtr = PointCloudPtr(new PointCloud);
     auto outPointCloudPtr = PointCloudPtr(new PointCloud);
 
     pcl::PointXYZ min_pt, max_pt;
@@ -232,7 +213,7 @@ PointCloudPtr computeSourceCloud(PointCloudPtr targetCloudPtr, double *seed,
                    coordSourceRandomized[0], coordSourceRandomized[1],
                    coordSourceRandomized[2], coordSourceRandomized[3]);
 
-    return sourceCloudPtr;
+    return outPointCloudPtr;
 }
 
 /* Common setup logic shared by all three pipelines.
@@ -303,7 +284,7 @@ TuplePointCloudPtr fullPipelineTemplate(
     auto pipelineOutput = pipelineFunc(sourceTransformedCloudPtr, targetCloudPtr, pipelineSettings);
 
     auto finalCloudPtr = PointCloudPtr(new PointCloud);
-    pcl::transformPointCloud(*sourceTransformedCloudPtr, *finalCloudPtr, std::get<TransformIndex>(pipelineOutput));
+    pcl::transformPointCloud(*sourceCloudPtr, *finalCloudPtr, std::get<TransformIndex>(pipelineOutput));
 
     std::cout << "\nNot displaying any results" << std::endl;
 
@@ -336,14 +317,14 @@ TuplePointCloudPtr fullPipeline(TupleParameters parametersList, double *seedRef,
 }
 
 /* get the distance between points */
-double distance(const PointXYZ &p1, const PointXYZ &p2)
+inline double distance(const PointXYZ &p1, const PointXYZ &p2)
 {
     Eigen::Vector3f diff = p1.getVector3fMap() - p2.getVector3fMap();
     return diff.norm();
 }
 
 /* Get separated axis coordinates of the points in the point cloud */
-TupleOfVectorDouble getCoordinates(PointCloudPtr srcPointCloudPtr)
+inline TupleOfVectorDouble getCoordinates(const PointCloudPtr& srcPointCloudPtr)
 {
     auto& srcPointCloud = *srcPointCloudPtr;
     std::vector<double> mtre_x_src, mtre_y_src, mtre_z_src;
@@ -361,7 +342,7 @@ TupleOfVectorDouble getCoordinates(PointCloudPtr srcPointCloudPtr)
 }
 
 /* Get the points coordinates in 3D */
-VectorPointXYZ Get3DCoordinatesXYZ(PointCloudPtr srcPointCloudPtr)
+inline VectorPointXYZ Get3DCoordinatesXYZ(const PointCloudPtr& srcPointCloudPtr)
 {
     auto& srcPointCloud = *srcPointCloudPtr;
     VectorPointXYZ coords;
@@ -374,7 +355,7 @@ VectorPointXYZ Get3DCoordinatesXYZ(PointCloudPtr srcPointCloudPtr)
 }
 
 /* Registration error bias */
-TupleOfDouble registrationErrorBias(PointCloudPtr srcPointCloudPtr, PointCloudPtr transformedSrcPointCloudPtr)
+TupleOfDouble registrationErrorBias(const PointCloudPtr& srcPointCloudPtr, const PointCloudPtr& transformedSrcPointCloudPtr)
 {
     auto [mtre_x_src, mtre_y_src, mtre_z_src] = getCoordinates(srcPointCloudPtr);
     auto [mtre_x_transformed_src, mtre_y_transformed_src, mtre_z_transformed_src] = getCoordinates(transformedSrcPointCloudPtr);
@@ -398,7 +379,7 @@ TupleOfDouble registrationErrorBias(PointCloudPtr srcPointCloudPtr, PointCloudPt
 }
 
 /* Mean target registration error */
-double meanTargetRegistrationError(PointCloudPtr srcPointCloudPtr, PointCloudPtr transformedSrcPointCloudPtr)
+double meanTargetRegistrationError(const PointCloudPtr& srcPointCloudPtr, const PointCloudPtr& transformedSrcPointCloudPtr)
 {
     auto coordinatesSrc = Get3DCoordinatesXYZ(srcPointCloudPtr);
     auto coordinatesSrcTransformed = Get3DCoordinatesXYZ(transformedSrcPointCloudPtr);

@@ -100,7 +100,7 @@ inline void saveResults(const std::string &savedFilename, const StringMap &setti
 inline TupleParameters parametersArray(const std::string &parametersFilename,
                                         const std::vector<std::string> &parameters)
 {
-    const size_t expected_params = 13;
+    constexpr size_t expected_params = 13;
     if (parameters.size() != expected_params) {
         throw std::invalid_argument("Invalid number of parameters in file: " + parametersFilename +
                                    ". Expected " + std::to_string(expected_params) +

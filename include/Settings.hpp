@@ -14,6 +14,10 @@ public:
         settingsMap[name] = value;
     }
 
+    void setValue(std::string&& name, double value) {
+        settingsMap[std::move(name)] = value;
+    }
+
     bool exists(const std::string& name) const {
         return settingsMap.find(name) != settingsMap.end();
     }
@@ -31,8 +35,8 @@ public:
     }
 
     void print() const {
-        for (const auto& pair : settingsMap) {
-            std::cout << "Name = " << pair.first << ", value = " << pair.second << std::endl;
+        for (const auto& [name, value] : settingsMap) {
+            std::cout << "Name = " << name << ", value = " << value << std::endl;
         }
     }
 };
