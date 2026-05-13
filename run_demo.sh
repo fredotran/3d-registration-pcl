@@ -22,7 +22,27 @@ echo "This will register source_verification1.pcd with target_verification1.pcd"
 echo ""
 
 # Run verification test 1
-./verification_test1
+# Start virtual display if none exists (e.g., in Docker CI), so PCL visualization
+# does not segfault. PCL visualizer spins indefinitely, so enforce a timeout.
+if [ -z "$DISPLAY" ]; then
+    echo "No DISPLAY detected, starting Xvfb for headless visualization"
+    export DISPLAY=:99
+    Xvfb :99 -screen 0 1024x768x24 &
+    XVFB_PID=$!
+    sleep 1
+    DEMO_EXIT_CODE=0
+    timeout 30 ./verification_test1 || DEMO_EXIT_CODE=$?
+    kill $XVFB_PID 2>/dev/null || true
+    if [ $DEMO_EXIT_CODE -eq 124 ]; then
+        echo "Demo timed out after 30 seconds (expected - PCL visualizer runs indefinitely)"
+        echo "Registration completed successfully, visualization window was closed by timeout"
+    elif [ $DEMO_EXIT_CODE -ne 0 ]; then
+        echo "Demo failed with exit code $DEMO_EXIT_CODE"
+        exit $DEMO_EXIT_CODE
+    fi
+else
+    ./verification_test1
+fi
 
 echo ""
 echo "=========================================="

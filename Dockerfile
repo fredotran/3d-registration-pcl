@@ -1,5 +1,5 @@
 # Dockerfile for 3D Point Cloud Registration using PCL
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 # Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -16,15 +16,15 @@ RUN apt-get update && apt-get install -y \
     libeigen3-dev \
     libflann-dev \
     libboost-all-dev \
-    libvtk7-dev \
+    libvtk9-dev \
     libqhull-dev \
     libx11-dev \
     libxi-dev \
     libxrandr-dev \
     libglew-dev \
     libglu1-mesa-dev \
-    libopenni-dev \
     libopenni2-dev \
+    mpi-default-dev \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
@@ -32,6 +32,11 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
     libpcl-dev \
     pcl-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Xvfb for headless visualization support
+RUN apt-get update && apt-get install -y \
+    xvfb \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Google Test for testing
@@ -42,8 +47,8 @@ RUN apt-get update && apt-get install -y \
 # Copy project files
 COPY . /app/
 
-# Create build directory
-RUN mkdir -p /app/build
+# Create build directory (clean any cached build from host)
+RUN rm -rf /app/build && mkdir -p /app/build
 
 # Build the project
 WORKDIR /app/build

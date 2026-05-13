@@ -92,8 +92,7 @@ inline PointCloudPtr loadPointCloud(const std::string& filename) {
             result = pcl::io::loadOBJFile(filename, *cloud);
             break;
         case PointCloudFormat::VTK:
-            result = pcl::io::loadVTKFile(filename, *cloud);
-            break;
+            throw std::runtime_error("VTK format loading is not directly supported for point clouds");
         case PointCloudFormat::UNKNOWN:
             throw std::runtime_error("Unknown point cloud format: " + filename);
     }
@@ -135,8 +134,7 @@ inline PointCloudPtr loadPointCloud(const std::string& filename, PointCloudForma
             result = pcl::io::loadOBJFile(filename, *cloud);
             break;
         case PointCloudFormat::VTK:
-            result = pcl::io::loadVTKFile(filename, *cloud);
-            break;
+            throw std::runtime_error("VTK format loading is not directly supported for point clouds");
         case PointCloudFormat::UNKNOWN:
             throw std::runtime_error("Cannot load with UNKNOWN format");
     }
@@ -187,12 +185,9 @@ inline void savePointCloud(PointCloudPtr cloud, const std::string& filename, boo
             }
             break;
         case PointCloudFormat::OBJ:
-            // OBJ format doesn't support binary
-            result = pcl::io::saveOBJFile(filename, *cloud);
-            break;
+            throw std::runtime_error("OBJ format saving is not directly supported for point clouds");
         case PointCloudFormat::VTK:
-            result = pcl::io::saveVTKFile(filename, *cloud);
-            break;
+            throw std::runtime_error("VTK format saving is not directly supported for point clouds");
         case PointCloudFormat::UNKNOWN:
             throw std::runtime_error("Unknown point cloud format for saving: " + filename);
     }
