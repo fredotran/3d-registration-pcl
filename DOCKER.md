@@ -57,7 +57,7 @@ cd build
 
 ### Dockerfile
 
-The Dockerfile is based on Ubuntu 20.04 and includes:
+The Dockerfile is based on Ubuntu 24.04 and includes:
 
 - **Build tools:** GCC, CMake, Make
 - **PCL dependencies:** Eigen3, FLANN, Boost, VTK, Qhull
@@ -207,7 +207,7 @@ cd build
 **Problem:** Build fails with PCL not found
 ```
 Solution: Ensure the Dockerfile has the correct PCL dependencies installed.
-The current Dockerfile uses libpcl-dev from Ubuntu 20.04 repositories.
+The current Dockerfile uses libpcl-dev from Ubuntu 24.04 repositories.
 ```
 
 **Problem:** Build fails with CMake errors
@@ -275,11 +275,11 @@ For smaller production images, consider a multi-stage build:
 
 ```dockerfile
 # Build stage
-FROM ubuntu:20.04 as builder
+FROM ubuntu:24.04 as builder
 # ... build steps ...
 
 # Runtime stage
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 COPY --from=builder /app/build /app/build
 # ... runtime dependencies only ...
 ```

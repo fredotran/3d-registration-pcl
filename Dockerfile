@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Install all system dependencies in a single layer for better caching
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
@@ -26,21 +26,9 @@ RUN apt-get update && apt-get install -y \
     libopenni2-dev \
     mpi-default-dev \
     pkg-config \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install PCL from apt
-RUN apt-get update && apt-get install -y \
     libpcl-dev \
     pcl-tools \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Xvfb for headless visualization support
-RUN apt-get update && apt-get install -y \
     xvfb \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Google Test for testing
-RUN apt-get update && apt-get install -y \
     libgtest-dev \
     && rm -rf /var/lib/apt/lists/*
 
