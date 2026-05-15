@@ -1,19 +1,18 @@
-#include "../include/tools.hpp"
 #include <ctime>
+
+#include "../include/tools.hpp"
 
 // RUN FROM THE BUILD FOLDER
 // Author: DS, 2021-07-22
 
-int main(int argc, char **argv)
-{
+int main(int argc, char** argv) {
     time_t timetoday;
     time(&timetoday);
-    std::cout << "exp_sacia_param_grid_search initiated on : " << asctime(localtime(&timetoday)) << std::endl;
+    std::cout << "exp_sacia_param_grid_search initiated on : " << asctime(localtime(&timetoday))
+              << std::endl;
 
-    std::string configFilenames[] = {
-        "../data/exp_sacia_param_grid_search.txt",
-        "../data/exp_sacia_param_grid_search_yaw110deg.txt"
-    };
+    std::string configFilenames[] = {"../data/exp_sacia_param_grid_search.txt",
+                                     "../data/exp_sacia_param_grid_search_yaw110deg.txt"};
 
     Settings pipelineSettings = getPipelineDefaultSettings();
 
@@ -30,31 +29,27 @@ int main(int argc, char **argv)
     seedCustomRotation = 0.7668;
     double inc = 0.37;
 
-    for (const std::string& configFilename : configFilenames)
-    {
-        for (size_t i = 1; i <= numberIter; i++)
-        {
+    for (const std::string& configFilename : configFilenames) {
+        for (size_t i = 1; i <= numberIter; i++) {
             seedRef += inc;
             seedSource += inc;
             seedCustomRotation += inc;
 
-            std::string outputFilename = appendTimestamp("../results/exp_sacia_param_grid_search_fixedYaw");
+            std::string outputFilename =
+                appendTimestamp("../results/exp_sacia_param_grid_search_fixedYaw");
 
-            for (double saciaNumIter : saciaNumIterVals)
-            {
+            for (double saciaNumIter : saciaNumIterVals) {
                 pipelineSettings.setValue(SACIA_NUM_ITERATIONS, saciaNumIter);
 
-                for (double saciaNumSample : saciaNumSampleVals)
-                {
+                for (double saciaNumSample : saciaNumSampleVals) {
                     pipelineSettings.setValue(SACIA_NUM_SAMPLES, saciaNumSample);
 
-                    for (double saciaMinSampleDist : saciaMinSampleDistVals)
-                    {
+                    for (double saciaMinSampleDist : saciaMinSampleDistVals) {
                         pipelineSettings.setValue(SACIA_MIN_SAMPLE_DIST, saciaMinSampleDist);
 
-                        for (double saciaMaxCorrDist : saciaMaxCorrDistVals)
-                        {
-                            pipelineSettings.setValue(SACIA_MAX_CORRESPONDENCE_DIST, saciaMaxCorrDist);
+                        for (double saciaMaxCorrDist : saciaMaxCorrDistVals) {
+                            pipelineSettings.setValue(SACIA_MAX_CORRESPONDENCE_DIST,
+                                                      saciaMaxCorrDist);
 
                             fullRegistration(configFilename, pipelineSettings, outputFilename,
                                              &seedRef, &seedSource, &seedCustomRotation);

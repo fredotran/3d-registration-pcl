@@ -2,11 +2,10 @@
 #include <tuple>
 
 std::tuple<int, int> divide(int dividend, int divisor) {
-    return  std::make_tuple(dividend / divisor, dividend % divisor);
+    return std::make_tuple(dividend / divisor, dividend % divisor);
 }
 
-int main()
-{
+int main() {
     if (__cplusplus == 201703L)
         std::cout << "C++17" << std::endl;
     else if (__cplusplus == 201402L)
@@ -24,5 +23,3 @@ int main()
 
     std::cout << quotient << ',' << remainder << std::endl;
 }
-
-

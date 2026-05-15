@@ -1,15 +1,17 @@
 #pragma once
 
-#include <string>
-#include <stdexcept>
-#include <algorithm>
-#include <vector>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
+#include <pcl/io/obj_io.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/ply_io.h>
-#include <pcl/io/obj_io.h>
 #include <pcl/io/vtk_io.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+
+#include <algorithm>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
 #include "parameters.hpp"
 
 /**
@@ -17,13 +19,7 @@
  * Supports: PCD, PLY, OBJ, VTK
  */
 
-enum class PointCloudFormat {
-    PCD,
-    PLY,
-    OBJ,
-    VTK,
-    UNKNOWN
-};
+enum class PointCloudFormat { PCD, PLY, OBJ, VTK, UNKNOWN };
 
 /**
  * Detect point cloud format from file extension
@@ -59,11 +55,16 @@ inline PointCloudFormat detectFormat(const std::string& filename) {
  */
 inline std::string formatToString(PointCloudFormat format) {
     switch (format) {
-        case PointCloudFormat::PCD: return "PCD";
-        case PointCloudFormat::PLY: return "PLY";
-        case PointCloudFormat::OBJ: return "OBJ";
-        case PointCloudFormat::VTK: return "VTK";
-        case PointCloudFormat::UNKNOWN: return "UNKNOWN";
+        case PointCloudFormat::PCD:
+            return "PCD";
+        case PointCloudFormat::PLY:
+            return "PLY";
+        case PointCloudFormat::OBJ:
+            return "OBJ";
+        case PointCloudFormat::VTK:
+            return "VTK";
+        case PointCloudFormat::UNKNOWN:
+            return "UNKNOWN";
     }
     return "UNKNOWN";
 }
@@ -92,7 +93,8 @@ inline PointCloudPtr loadPointCloud(const std::string& filename) {
             result = pcl::io::loadOBJFile(filename, *cloud);
             break;
         case PointCloudFormat::VTK:
-            throw std::runtime_error("VTK format loading is not directly supported for point clouds");
+            throw std::runtime_error(
+                "VTK format loading is not directly supported for point clouds");
         case PointCloudFormat::UNKNOWN:
             throw std::runtime_error("Unknown point cloud format: " + filename);
     }
@@ -134,7 +136,8 @@ inline PointCloudPtr loadPointCloud(const std::string& filename, PointCloudForma
             result = pcl::io::loadOBJFile(filename, *cloud);
             break;
         case PointCloudFormat::VTK:
-            throw std::runtime_error("VTK format loading is not directly supported for point clouds");
+            throw std::runtime_error(
+                "VTK format loading is not directly supported for point clouds");
         case PointCloudFormat::UNKNOWN:
             throw std::runtime_error("Cannot load with UNKNOWN format");
     }
@@ -185,9 +188,11 @@ inline void savePointCloud(PointCloudPtr cloud, const std::string& filename, boo
             }
             break;
         case PointCloudFormat::OBJ:
-            throw std::runtime_error("OBJ format saving is not directly supported for point clouds");
+            throw std::runtime_error(
+                "OBJ format saving is not directly supported for point clouds");
         case PointCloudFormat::VTK:
-            throw std::runtime_error("VTK format saving is not directly supported for point clouds");
+            throw std::runtime_error(
+                "VTK format saving is not directly supported for point clouds");
         case PointCloudFormat::UNKNOWN:
             throw std::runtime_error("Unknown point cloud format for saving: " + filename);
     }
@@ -207,8 +212,7 @@ inline void savePointCloud(PointCloudPtr cloud, const std::string& filename, boo
  * @param binary Save in binary format (for supported formats)
  */
 inline void convertPointCloudFormat(const std::string& inputFilename,
-                                     const std::string& outputFilename,
-                                     bool binary = false) {
+                                    const std::string& outputFilename, bool binary = false) {
     std::cout << "Converting " << inputFilename << " to " << outputFilename << std::endl;
 
     auto cloud = loadPointCloud(inputFilename);

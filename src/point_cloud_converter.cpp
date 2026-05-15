@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+
 #include "point_cloud_formats.hpp"
 
 /**
@@ -18,7 +19,8 @@ void printUsage(const std::string& programName) {
     std::cout << "Arguments:" << std::endl;
     std::cout << "  input_file   : Path to input point cloud file" << std::endl;
     std::cout << "  output_file  : Path to output point cloud file" << std::endl;
-    std::cout << "  binary       : Optional flag to save in binary format (for PCD/PLY)" << std::endl;
+    std::cout << "  binary       : Optional flag to save in binary format (for PCD/PLY)"
+              << std::endl;
     std::cout << std::endl;
     std::cout << "Supported formats: PCD, PLY, OBJ, VTK" << std::endl;
     std::cout << std::endl;

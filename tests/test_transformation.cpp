@@ -1,8 +1,9 @@
 #include <gtest/gtest.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include "tools.hpp"
+
 #include "parameters.hpp"
+#include "tools.hpp"
 
 TEST(TransformationTest, CustomRotationIdentity) {
     // Test identity transformation (no rotation)
@@ -14,7 +15,8 @@ TEST(TransformationTest, CustomRotationIdentity) {
     Eigen::Vector4f origin_centroid(0, 0, 0, 0);
     Eigen::Vector4f new_centroid(0, 0, 0, 0);
 
-    auto transform = customRotation(cloudPtr, centroid, origin_centroid, new_centroid, 0.0, 0.0, 0.0);
+    auto transform =
+        customRotation(cloudPtr, centroid, origin_centroid, new_centroid, 0.0, 0.0, 0.0);
 
     // Identity transformation should be close to identity matrix
     EXPECT_NEAR(transform.matrix()(0, 0), 1.0, 1e-5);
@@ -32,7 +34,8 @@ TEST(TransformationTest, CustomRotationXAxis) {
     Eigen::Vector4f origin_centroid(0, 0, 0, 0);
     Eigen::Vector4f new_centroid(0, 0, 0, 0);
 
-    auto transform = customRotation(cloudPtr, centroid, origin_centroid, new_centroid, 90.0, 0.0, 0.0);
+    auto transform =
+        customRotation(cloudPtr, centroid, origin_centroid, new_centroid, 90.0, 0.0, 0.0);
 
     // Point on X-axis should remain unchanged after X-axis rotation
     auto transformedCloud = PointCloudPtr(new PointCloud);
@@ -52,7 +55,8 @@ TEST(TransformationTest, CustomRotationYAxis) {
     Eigen::Vector4f origin_centroid(0, 0, 0, 0);
     Eigen::Vector4f new_centroid(0, 0, 0, 0);
 
-    auto transform = customRotation(cloudPtr, centroid, origin_centroid, new_centroid, 0.0, 90.0, 0.0);
+    auto transform =
+        customRotation(cloudPtr, centroid, origin_centroid, new_centroid, 0.0, 90.0, 0.0);
 
     // Point on Y-axis should remain unchanged after Y-axis rotation
     auto transformedCloud = PointCloudPtr(new PointCloud);
@@ -72,7 +76,8 @@ TEST(TransformationTest, CustomRotationZAxis) {
     Eigen::Vector4f origin_centroid(0, 0, 0, 0);
     Eigen::Vector4f new_centroid(0, 0, 0, 0);
 
-    auto transform = customRotation(cloudPtr, centroid, origin_centroid, new_centroid, 0.0, 0.0, 90.0);
+    auto transform =
+        customRotation(cloudPtr, centroid, origin_centroid, new_centroid, 0.0, 0.0, 90.0);
 
     // Point on Z-axis should remain unchanged after Z-axis rotation
     auto transformedCloud = PointCloudPtr(new PointCloud);
@@ -110,7 +115,8 @@ TEST(TransformationTest, CorrectedPointCloud) {
     Eigen::Vector4f origin_centroid(0, 0, 0, 0);
     Eigen::Vector4f new_centroid(0, 0, 0, 0);
 
-    auto correctedCloud = correctedPointCloud(cloudPtr, centroid, origin_centroid, new_centroid, 0.0, 0.0, 0.0);
+    auto correctedCloud =
+        correctedPointCloud(cloudPtr, centroid, origin_centroid, new_centroid, 0.0, 0.0, 0.0);
 
     // With no rotation and zero centroids, cloud should remain similar
     EXPECT_EQ(correctedCloud->size(), cloudPtr->size());

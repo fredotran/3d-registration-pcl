@@ -1,11 +1,11 @@
-#include "./include/tools.hpp"
 #include <pcl/features/shot.h>
+
+#include "./include/tools.hpp"
 
 // RUN FROM THE BUILD FOLDER
 // Test file for SHOT features - mostly inactive, kept for reference
 
-int main(int argc, char **argv)
-{
+int main(int argc, char** argv) {
     Descriptor shot;
     PointCloudPtr sourceCloudPtr(new PointCloud);
     PointCloudPtr targetCloudPtr(new PointCloud);

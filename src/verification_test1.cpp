@@ -1,16 +1,17 @@
-#include "../include/tools.hpp"
 #include <ctime>
 
+#include "../include/tools.hpp"
+
 // RUN FROM THE BUILD FOLDER
-// RUN A REGISTRATION BETWEEN 2 POINT CLOUDS SAMPLES (source_verification1.pcd & target_verification1.pcd)
-// WITH A PRE-HANDED CUSTOM TRANSFORMATION ON target_verification1.pcd
+// RUN A REGISTRATION BETWEEN 2 POINT CLOUDS SAMPLES (source_verification1.pcd &
+// target_verification1.pcd) WITH A PRE-HANDED CUSTOM TRANSFORMATION ON target_verification1.pcd
 // Results expected = enough registration to be able to perform ICP
 
-int main(int argc, char **argv)
-{
+int main(int argc, char** argv) {
     time_t timetoday;
     time(&timetoday);
-    std::cout << "verification_test1 initiated on : " << asctime(localtime(&timetoday)) << std::endl;
+    std::cout << "verification_test1 initiated on : " << asctime(localtime(&timetoday))
+              << std::endl;
 
     Settings pipelineSettings = getPipelineDefaultSettings();
     pipelineSettings.setValue(SACIA_MIN_SAMPLE_DIST, 0.01f);

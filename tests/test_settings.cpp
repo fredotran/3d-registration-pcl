@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include "Settings.hpp"
 
 TEST(SettingsTest, SetValueAndGetValue) {
@@ -30,7 +31,7 @@ TEST(SettingsTest, GetAllSettings) {
     Settings settings;
     settings.setValue("param1", 1.0);
     settings.setValue("param2", 2.0);
-    
+
     const auto& allSettings = settings.getAllSettings();
     EXPECT_EQ(allSettings.size(), 2);
     EXPECT_EQ(allSettings.at("param1"), 1.0);

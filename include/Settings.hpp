@@ -1,15 +1,15 @@
 #pragma once
 
-#include <string>
-#include <map>
 #include <iostream>
+#include <map>
 #include <stdexcept>
+#include <string>
 
 class Settings {
-private:
+   private:
     std::map<std::string, double> settingsMap;
 
-public:
+   public:
     void setValue(const std::string& name, double value) {
         settingsMap[name] = value;
     }

@@ -1,9 +1,10 @@
 #include <gtest/gtest.h>
+#include <pcl/io/pcd_io.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pcl/io/pcd_io.h>
-#include "tools.hpp"
+
 #include "parameters.hpp"
+#include "tools.hpp"
 
 TEST(PointCloudUtilsTest, CropPointCloud) {
     // Test point cloud cropping
@@ -96,7 +97,8 @@ TEST(PointCloudUtilsTest, ComputeReferenceCloud) {
     // Create a simple surface model
     for (int i = 0; i < 20; ++i) {
         for (int j = 0; j < 20; ++j) {
-            surfaceModel->push_back(pcl::PointXYZ(static_cast<float>(i), static_cast<float>(j), 0.0));
+            surfaceModel->push_back(
+                pcl::PointXYZ(static_cast<float>(i), static_cast<float>(j), 0.0));
         }
     }
 
@@ -106,7 +108,8 @@ TEST(PointCloudUtilsTest, ComputeReferenceCloud) {
     double x_uncertainty = 1.0;
     double y_uncertainty = 1.0;
 
-    auto referenceCloud = computeReferenceCloud(surfaceModel, &seedRef, sourceWidth, sourceHeight, x_uncertainty, y_uncertainty);
+    auto referenceCloud = computeReferenceCloud(surfaceModel, &seedRef, sourceWidth, sourceHeight,
+                                                x_uncertainty, y_uncertainty);
 
     // Reference cloud should be smaller than surface model
     EXPECT_GT(referenceCloud->size(), 0);
@@ -120,7 +123,8 @@ TEST(PointCloudUtilsTest, ComputeSourceCloud) {
     // Create a target cloud
     for (int i = 0; i < 20; ++i) {
         for (int j = 0; j < 20; ++j) {
-            targetCloud->push_back(pcl::PointXYZ(static_cast<float>(i), static_cast<float>(j), 0.0));
+            targetCloud->push_back(
+                pcl::PointXYZ(static_cast<float>(i), static_cast<float>(j), 0.0));
         }
     }
 
@@ -130,7 +134,8 @@ TEST(PointCloudUtilsTest, ComputeSourceCloud) {
     double x_uncertainty = 1.0;
     double y_uncertainty = 1.0;
 
-    auto sourceCloud = computeSourceCloud(targetCloud, &seed, sourceWidth, sourceHeight, x_uncertainty, y_uncertainty);
+    auto sourceCloud = computeSourceCloud(targetCloud, &seed, sourceWidth, sourceHeight,
+                                          x_uncertainty, y_uncertainty);
 
     // Source cloud should be smaller than target cloud
     EXPECT_GT(sourceCloud->size(), 0);

@@ -1,8 +1,9 @@
 #include <gtest/gtest.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include "tools.hpp"
+
 #include "parameters.hpp"
+#include "tools.hpp"
 
 TEST(ErrorMetricsTest, MeanTargetRegistrationErrorIdentity) {
     // Test MTRE with identical clouds (should be zero)

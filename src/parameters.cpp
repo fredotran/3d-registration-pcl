@@ -1,7 +1,6 @@
 #include "parameters.hpp"
 
-Settings getPipelineDefaultSettings()
-{
+Settings getPipelineDefaultSettings() {
     Settings settings;
 
     settings.setValue(NORMALS_SEARCH_RADIUS, 2.0);

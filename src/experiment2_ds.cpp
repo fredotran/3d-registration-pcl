@@ -1,16 +1,15 @@
-#include "../include/tools.hpp"
 #include <ctime>
+
+#include "../include/tools.hpp"
 
 // RUN FROM THE BUILD FOLDER
 
-int main(int argc, char **argv)
-{
+int main(int argc, char** argv) {
     time_t timetoday;
     time(&timetoday);
     std::cout << "experiment2_ds initiated on : " << asctime(localtime(&timetoday)) << std::endl;
 
-    if (argc < 1)
-    {
+    if (argc < 1) {
         throw std::runtime_error("Required arguments: number of iterations");
     }
     int numberIter = std::stoi(argv[1]);
@@ -29,14 +28,13 @@ int main(int argc, char **argv)
     double seedRef(0.1), seedSource(0.2), seedCustomRotation(0.3);
     double inc = 0.37;
 
-    for (size_t i = 1; i <= numberIter; i++)
-    {
+    for (size_t i = 1; i <= numberIter; i++) {
         seedRef += inc;
         seedSource += inc;
         seedCustomRotation += inc;
 
-        fullRegistration(paramFilenameHarris, pipelineSettings, savedFilename,
-                         &seedRef, &seedSource, &seedCustomRotation);
+        fullRegistration(paramFilenameHarris, pipelineSettings, savedFilename, &seedRef,
+                         &seedSource, &seedCustomRotation);
     }
 
     return 0;
