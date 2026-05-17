@@ -13,6 +13,7 @@ add_executable(pcl_registration_tests
     test_transformation.cpp
     test_error_metrics.cpp
     test_point_cloud_utils.cpp
+    test_randomization.cpp
 )
 
 target_link_libraries(pcl_registration_tests
@@ -21,11 +22,6 @@ target_link_libraries(pcl_registration_tests
     GTest::GTest
     GTest::Main
 )
-
-# Workaround for multiple definitions from header-only functions
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    target_link_options(pcl_registration_tests PRIVATE -Wl,--allow-multiple-definition)
-endif()
 
 # Register tests with CTest
 include(GoogleTest)

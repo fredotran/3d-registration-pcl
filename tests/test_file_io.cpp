@@ -51,9 +51,9 @@ TEST(FileIOTest, ReadParameters) {
 
     auto params = readParameters("test_params.txt");
     EXPECT_EQ(params.size(), 3);
-    EXPECT_EQ(params[0], "value1");
-    EXPECT_EQ(params[1], "value2");
-    EXPECT_EQ(params[2], "value3");
+    EXPECT_EQ(params.at("param1"), "value1");
+    EXPECT_EQ(params.at("param2"), "value2");
+    EXPECT_EQ(params.at("param3"), "value3");
 
     // Clean up
     std::remove("test_params.txt");

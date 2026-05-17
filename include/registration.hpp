@@ -8,10 +8,6 @@
 #include <omp.h>
 #endif
 
-///////////////////////////////
-///////// OPENMP HELPERS ///////
-///////////////////////////////
-
 inline int getOpenMPMaxThreads() {
 #ifdef _OPENMP
     return omp_get_max_threads();
@@ -33,7 +29,6 @@ inline void printOpenMPInfo(const std::string& step_name) {
 ///////// PROTOTYPES ///////////
 ///////////////////////////////
 
-// Reading point clouds & computing normals
 pcl::PointCloud<pcl::PointNormal>::Ptr computePointNormals(
     PointCloudPtr inputCloudPtr, pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormals,
     double search_radius);
@@ -42,7 +37,6 @@ pcl::PointCloud<pcl::Normal>::Ptr computeNormals(
     PointCloudPtr inputCloudPtr, pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormals,
     double search_radius);
 
-// Descriptors
 LocalDescriptorFPFHPtr computeFPFH(PointCloudPtr inputCloudPtr,
                                    pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr,
                                    pcl::search::KdTree<pcl::PointXYZ>::Ptr inputTreeNormals,
@@ -60,7 +54,6 @@ LocalDescriptorFPFHPtr computeFPFH(PointCloudPtr inputCloudPtr,
                                    pcl::search::KdTree<pcl::PointXYZ>::Ptr inputTreeNormals,
                                    double search_radius);
 
-// SHOT Descriptors
 LocalDescriptorSHOTPtr computeSHOT(PointCloudPtr inputCloudPtr,
                                    pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr,
                                    pcl::search::KdTree<pcl::PointXYZ>::Ptr inputTreeNormals,
@@ -78,7 +71,6 @@ LocalDescriptorSHOTPtr computeSHOT(PointCloudPtr inputCloudPtr,
                                    pcl::search::KdTree<pcl::PointXYZ>::Ptr inputTreeNormals,
                                    double search_radius);
 
-// Detectors
 PtCloudPointWithScalePtr computeSiftKeypoints(
     pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr, float min_scale, int n_octaves,
     int n_scales_per_octave, float min_contrast);
@@ -94,7 +86,6 @@ PtCloudPointWithScalePtr computeISSKeypoints(
     pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr, double salient_radius,
     double non_max_radius, double threshold_21, double threshold_32, int min_neighbors);
 
-// Searching methods
 Eigen::Matrix4f computeSACInitialAlignment(PtCloudPointWithScalePtr& sourceKeypointsPtr,
                                            PtCloudPointWithScalePtr& targetKeypointsPtr,
                                            LocalDescriptorFPFHPtr sourceFPFH,
@@ -116,7 +107,6 @@ Eigen::Matrix4f computeSACInitialAlignment(PointCloudPtr sourceCloudPtr,
                                            float min_sample_distance, float max_correspondence_dist,
                                            int nr_iters, int nr_samples);
 
-// SAC-IA with SHOT descriptors
 Eigen::Matrix4f computeSACInitialAlignment(PtCloudPointWithScalePtr& sourceKeypointsPtr,
                                            PtCloudPointWithScalePtr& targetKeypointsPtr,
                                            LocalDescriptorSHOTPtr sourceSHOT,
@@ -138,12 +128,10 @@ Eigen::Matrix4f computeSACInitialAlignment(PointCloudPtr sourceCloudPtr,
                                            float min_sample_distance, float max_correspondence_dist,
                                            int nr_iters, int nr_samples);
 
-// ICP fine registration
 Eigen::Matrix4f computeICP(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr,
                            float max_correspondence_dist, int max_iterations,
                            float transformation_epsilon, float euclidean_fitness_epsilon);
 
-// Full pipelines
 pipelineSiftOutputPtr siftPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr,
                                    Settings settings);
 pipelineHarrisOutputPtr harrisPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr,
@@ -156,10 +144,9 @@ pipelineAllPointsOutputPtr shotPipeline(PointCloudPtr sourceCloudPtr, PointCloud
                                         Settings settings);
 
 ////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
+// Anonymous namespace: template helpers that must stay in the header
 ////////////////////////////////////////////////////////////////////////////////
 
-// Private helper: core FPFH computation given a pre-built cloud
 namespace {
 
 LocalDescriptorFPFHPtr computeFPFHCore(PointCloudPtr inputCloudPtr,
@@ -188,7 +175,6 @@ LocalDescriptorFPFHPtr computeFPFHCore(PointCloudPtr inputCloudPtr,
     return fpfh_features;
 }
 
-// Private helper: core SAC-IA alignment given a configured SAC object
 template <typename PointSource, typename PointTarget>
 Eigen::Matrix4f computeSACAlignment(typename pcl::PointCloud<PointSource>::Ptr sourceKeypointsPtr,
                                     typename pcl::PointCloud<PointTarget>::Ptr targetKeypointsPtr,
@@ -228,7 +214,6 @@ Eigen::Matrix4f computeSACAlignment(typename pcl::PointCloud<PointSource>::Ptr s
     return final_transformation;
 }
 
-// Private helper: core SHOT computation given a pre-built cloud
 LocalDescriptorSHOTPtr computeSHOTCore(PointCloudPtr inputCloudPtr,
                                        pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr,
                                        PointCloudPtr keypointCloudPtr,
@@ -255,7 +240,6 @@ LocalDescriptorSHOTPtr computeSHOTCore(PointCloudPtr inputCloudPtr,
     return shot_features;
 }
 
-// Private helper: core SAC-IA alignment with SHOT features
 template <typename PointSource, typename PointTarget>
 Eigen::Matrix4f computeSACAlignmentSHOT(
     typename pcl::PointCloud<PointSource>::Ptr sourceKeypointsPtr,
@@ -298,59 +282,11 @@ Eigen::Matrix4f computeSACAlignmentSHOT(
 }  // namespace
 
 ///////////////////////////////
-////////// METHODS /////////////
-///////////////////////////////
-
-/* Compute the point normals of the input point cloud using KdTree search */
-pcl::PointCloud<pcl::PointNormal>::Ptr computePointNormals(
-    PointCloudPtr inputCloudPtr, pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormals,
-    double search_radius) {
-    auto inputCloudNormalsPtr =
-        pcl::PointCloud<pcl::PointNormal>::Ptr(new pcl::PointCloud<pcl::PointNormal>);
-    pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::PointNormal> normalEstimation;
-    std::cout << "\n- Step 1 : Computing point cloud normals... " << std::endl;
-#ifdef _OPENMP
-    normalEstimation.setNumberOfThreads(getOpenMPMaxThreads());
-    printOpenMPInfo("Normal estimation");
-#endif
-    normalEstimation.setInputCloud(inputCloudPtr);
-    normalEstimation.setSearchMethod(treeNormals);
-    normalEstimation.setRadiusSearch(search_radius);
-    normalEstimation.compute(*inputCloudNormalsPtr);
-    pcl::copyPointCloud(*inputCloudPtr, *inputCloudNormalsPtr);
-    std::cout << "Done! " << std::endl;
-    std::cout << "Normals point clouds size : " << inputCloudNormalsPtr->size() << std::endl;
-    return inputCloudNormalsPtr;
-}
-
-/* Compute normals of the input point cloud using KdTree search */
-pcl::PointCloud<pcl::Normal>::Ptr computeNormals(
-    PointCloudPtr inputCloudPtr, pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormals,
-    double search_radius) {
-    auto inputNormalsPtr = pcl::PointCloud<pcl::Normal>::Ptr(new pcl::PointCloud<pcl::Normal>);
-    pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> normalEstimation;
-    std::cout << "Computing point cloud normals... " << std::endl;
-#ifdef _OPENMP
-    normalEstimation.setNumberOfThreads(getOpenMPMaxThreads());
-    printOpenMPInfo("Normal estimation");
-#endif
-    normalEstimation.setInputCloud(inputCloudPtr);
-    normalEstimation.setSearchMethod(treeNormals);
-    normalEstimation.setRadiusSearch(search_radius);
-    normalEstimation.compute(*inputNormalsPtr);
-    pcl::copyPointCloud(*inputCloudPtr, *inputNormalsPtr);
-    std::cout << "Done! " << std::endl;
-    std::cout << "Normals point clouds size : " << inputNormalsPtr->size() << std::endl;
-    return inputNormalsPtr;
-}
-
-///////////////////////////////
 /////// DETECTORS CLASS ////////
 ///////////////////////////////
 
 class Detector {
    public:
-    // SIFT Detector
     PtCloudPointWithScalePtr computeSiftKeypoints(
         pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr, float min_scale, int n_octaves,
         int n_scales_per_octave, float min_contrast) {
@@ -371,7 +307,6 @@ class Detector {
         return siftKeypointsPtr;
     }
 
-    // Harris 3D Detector
     PtCloudPointWithIntensityPtr computeHarris3DKeypoints(
         pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr, double search_radius,
         double threshold_harris) {
@@ -395,7 +330,6 @@ class Detector {
         return intensityHarrisKeypointsPtr;
     }
 
-    // BRISK 2D Detector
     PtCloudPointWithScalePtr computeBRISK2DKeypoints(
         pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr, double threshold_brisk) {
         pcl::BriskKeypoint2D<pcl::PointNormal> brisk;
@@ -414,7 +348,6 @@ class Detector {
         return intensityBriskKeypointsPtr;
     }
 
-    // ISS 3D Detector
     PtCloudPointWithScalePtr computeISSKeypoints(
         pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr, double salient_radius,
         double non_max_radius, double threshold_21, double threshold_32, int min_neighbors) {
@@ -444,7 +377,6 @@ class Detector {
 
 class Descriptor {
    public:
-    // FPFH Descriptor on all the points (no keypoint filtering)
     LocalDescriptorFPFHPtr computeFPFH(PointCloudPtr inputCloudPtr,
                                        pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr,
                                        pcl::search::KdTree<pcl::PointXYZ>::Ptr inputTreeNormals,
@@ -453,7 +385,6 @@ class Descriptor {
                                search_radius);
     }
 
-    // FPFH Descriptor for SIFT & BRISK detector
     LocalDescriptorFPFHPtr computeFPFH(PointCloudPtr inputCloudPtr,
                                        pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr,
                                        PtCloudPointWithScalePtr keypointsPtr,
@@ -465,7 +396,6 @@ class Descriptor {
                                inputTreeNormals, search_radius);
     }
 
-    // FPFH Descriptor for Harris 3D detector
     LocalDescriptorFPFHPtr computeFPFH(PointCloudPtr inputCloudPtr,
                                        pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr,
                                        PtCloudPointWithIntensityPtr keypointsPtr,
@@ -477,7 +407,6 @@ class Descriptor {
                                inputTreeNormals, search_radius);
     }
 
-    // SHOT Descriptor on all the points (no keypoint filtering)
     LocalDescriptorSHOTPtr computeSHOT(PointCloudPtr inputCloudPtr,
                                        pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr,
                                        pcl::search::KdTree<pcl::PointXYZ>::Ptr inputTreeNormals,
@@ -486,7 +415,6 @@ class Descriptor {
                                search_radius);
     }
 
-    // SHOT Descriptor for SIFT & BRISK detector
     LocalDescriptorSHOTPtr computeSHOT(PointCloudPtr inputCloudPtr,
                                        pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr,
                                        PtCloudPointWithScalePtr keypointsPtr,
@@ -498,7 +426,6 @@ class Descriptor {
                                inputTreeNormals, search_radius);
     }
 
-    // SHOT Descriptor for Harris 3D detector
     LocalDescriptorSHOTPtr computeSHOT(PointCloudPtr inputCloudPtr,
                                        pcl::PointCloud<pcl::PointNormal>::Ptr inputCloudNormalsPtr,
                                        PtCloudPointWithIntensityPtr keypointsPtr,
@@ -517,7 +444,6 @@ class Descriptor {
 
 class SearchingMethods {
    public:
-    // SAC-IA with SIFT keypoints
     Eigen::Matrix4f computeSACInitialAlignment(
         PtCloudPointWithScalePtr& sourceKeypointsPtr, PtCloudPointWithScalePtr& targetKeypointsPtr,
         LocalDescriptorFPFHPtr sourceFPFH, LocalDescriptorFPFHPtr targetFPFH,
@@ -527,7 +453,6 @@ class SearchingMethods {
             max_correspondence_dist, nr_iters, nr_samples, "SIFT keypoints");
     }
 
-    // SAC-IA with Harris 3D keypoints
     Eigen::Matrix4f computeSACInitialAlignment(PtCloudPointWithIntensityPtr& sourceKeypointsPtr,
                                                PtCloudPointWithIntensityPtr& targetKeypointsPtr,
                                                LocalDescriptorFPFHPtr& sourceFPFH,
@@ -540,7 +465,6 @@ class SearchingMethods {
             max_correspondence_dist, nr_iters, nr_samples, "Harris keypoints");
     }
 
-    // SAC-IA with full point clouds
     Eigen::Matrix4f computeSACInitialAlignment(
         PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr,
         LocalDescriptorFPFHPtr sourceFPFH, LocalDescriptorFPFHPtr targetFPFH,
@@ -550,7 +474,6 @@ class SearchingMethods {
             max_correspondence_dist, nr_iters, nr_samples, "all points");
     }
 
-    // SAC-IA with SIFT keypoints and SHOT
     Eigen::Matrix4f computeSACInitialAlignment(
         PtCloudPointWithScalePtr& sourceKeypointsPtr, PtCloudPointWithScalePtr& targetKeypointsPtr,
         LocalDescriptorSHOTPtr sourceSHOT, LocalDescriptorSHOTPtr targetSHOT,
@@ -560,7 +483,6 @@ class SearchingMethods {
             max_correspondence_dist, nr_iters, nr_samples, "SIFT keypoints");
     }
 
-    // SAC-IA with Harris 3D keypoints and SHOT
     Eigen::Matrix4f computeSACInitialAlignment(PtCloudPointWithIntensityPtr& sourceKeypointsPtr,
                                                PtCloudPointWithIntensityPtr& targetKeypointsPtr,
                                                LocalDescriptorSHOTPtr& sourceSHOT,
@@ -573,7 +495,6 @@ class SearchingMethods {
             max_correspondence_dist, nr_iters, nr_samples, "Harris keypoints");
     }
 
-    // SAC-IA with full point clouds and SHOT
     Eigen::Matrix4f computeSACInitialAlignment(
         PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr,
         LocalDescriptorSHOTPtr sourceSHOT, LocalDescriptorSHOTPtr targetSHOT,
@@ -583,7 +504,6 @@ class SearchingMethods {
             max_correspondence_dist, nr_iters, nr_samples, "all points");
     }
 
-    // ICP fine registration
     Eigen::Matrix4f computeICP(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr,
                                float max_correspondence_dist, int max_iterations,
                                float transformation_epsilon, float euclidean_fitness_epsilon) {
@@ -614,328 +534,3 @@ class SearchingMethods {
         return final_transformation;
     }
 };
-
-///////////////////////////////
-//////// PIPELINES /////////////
-///////////////////////////////
-
-pipelineSiftOutputPtr siftPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr,
-                                   Settings settings) {
-    double normalsSearchRadius = settings.getValue(NORMALS_SEARCH_RADIUS);
-
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormals(new pcl::search::KdTree<pcl::PointXYZ>);
-    auto sourceNormalsPtr = computePointNormals(sourceCloudPtr, treeNormals, normalsSearchRadius);
-    auto targetNormalsPtr = computePointNormals(targetCloudPtr, treeNormals, normalsSearchRadius);
-
-    Detector detector;
-    double minScaleSource = settings.getValue(SIFT_MIN_SCALE_SOURCE);
-    double numOctavesSource = settings.getValue(SIFT_NUM_OCTAVES_SOURCE);
-    double numScalesPerOctaveSource = settings.getValue(SIFT_NUM_SCALES_PER_OCTAVE_SOURCE);
-    double minContrastSource = settings.getValue(SIFT_MIN_CONTRAST_SOURCE);
-    double minScaleTarget = settings.getValue(SIFT_MIN_SCALE_TARGET);
-    double numOctavesTarget = settings.getValue(SIFT_NUM_OCTAVES_TARGET);
-    double numScalesPerOctaveTarget = settings.getValue(SIFT_NUM_SCALES_PER_OCTAVE_TARGET);
-    double minContrastTarget = settings.getValue(SIFT_MIN_CONTRAST_TARGET);
-
-    auto sourceSiftKeypointsPtr =
-        detector.computeSiftKeypoints(sourceNormalsPtr, minScaleSource, numOctavesSource,
-                                      numScalesPerOctaveSource, minContrastSource);
-    auto targetSiftKeypointsPtr =
-        detector.computeSiftKeypoints(targetNormalsPtr, minScaleTarget, numOctavesTarget,
-                                      numScalesPerOctaveTarget, minContrastTarget);
-
-    Descriptor descriptor;
-    double fpfhSearchRadius = settings.getValue(FPFH_SEARCH_RADIUS);
-    auto sourceFPFHSift = descriptor.computeFPFH(
-        sourceCloudPtr, sourceNormalsPtr, sourceSiftKeypointsPtr, treeNormals, fpfhSearchRadius);
-    auto targetFPFHSift = descriptor.computeFPFH(
-        targetCloudPtr, targetNormalsPtr, targetSiftKeypointsPtr, treeNormals, fpfhSearchRadius);
-
-    SearchingMethods sac;
-    double minSampleDist = settings.getValue(SACIA_MIN_SAMPLE_DIST);
-    double maxCorrespondDist = settings.getValue(SACIA_MAX_CORRESPONDENCE_DIST);
-    int numIterations = static_cast<int>(std::lround(settings.getValue(SACIA_NUM_ITERATIONS)));
-    int numSamples = static_cast<int>(std::lround(settings.getValue(SACIA_NUM_SAMPLES)));
-
-    std::cout << "numSamples = " << numSamples << std::endl;
-
-    auto coarse_transformation = sac.computeSACInitialAlignment(
-        sourceSiftKeypointsPtr, targetSiftKeypointsPtr, sourceFPFHSift, targetFPFHSift,
-        minSampleDist, maxCorrespondDist, numIterations, numSamples);
-
-    // Apply coarse transformation
-    auto coarseTransformedCloudPtr = PointCloudPtr(new PointCloud);
-    pcl::transformPointCloud(*sourceCloudPtr, *coarseTransformedCloudPtr, coarse_transformation);
-
-    // Optional ICP fine registration
-    Eigen::Matrix4f final_transformation = coarse_transformation;
-    bool icp_enabled = false;
-    if (settings.exists(ICP_ENABLED) && settings.getValue(ICP_ENABLED) > 0.5) {
-        icp_enabled = true;
-        double icpMaxCorrespondDist = settings.getValue(ICP_MAX_CORRESPONDENCE_DIST);
-        int icpMaxIterations = static_cast<int>(std::lround(settings.getValue(ICP_MAX_ITERATIONS)));
-        double icpTransformEpsilon = settings.getValue(ICP_TRANSFORMATION_EPSILON);
-        double icpEuclideanEpsilon = settings.getValue(ICP_EUCLIDEAN_EPSILON);
-
-        SearchingMethods searching;
-        Eigen::Matrix4f icp_transformation =
-            searching.computeICP(coarseTransformedCloudPtr, targetCloudPtr, icpMaxCorrespondDist,
-                                 icpMaxIterations, icpTransformEpsilon, icpEuclideanEpsilon);
-
-        // Combine transformations: final = icp * coarse
-        final_transformation = icp_transformation * coarse_transformation;
-    }
-
-    auto transformedCloudPtr = PointCloudPtr(new PointCloud);
-    pcl::transformPointCloud(*sourceCloudPtr, *transformedCloudPtr, final_transformation);
-
-    return {sourceCloudPtr,         targetCloudPtr,         transformedCloudPtr,
-            sourceSiftKeypointsPtr, targetSiftKeypointsPtr, final_transformation};
-}
-
-pipelineHarrisOutputPtr harrisPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr,
-                                       Settings settings) {
-    double normalsSearchRadius = settings.getValue(NORMALS_SEARCH_RADIUS);
-
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormals(new pcl::search::KdTree<pcl::PointXYZ>);
-    auto sourceNormalsPtr = computePointNormals(sourceCloudPtr, treeNormals, normalsSearchRadius);
-    auto targetNormalsPtr = computePointNormals(targetCloudPtr, treeNormals, normalsSearchRadius);
-
-    Detector detector;
-    double harrisSearchRadius = settings.getValue(HARRIS_SEARCH_RADIUS);
-    double harrisThreshold = settings.getValue(HARRIS_THRESHOLD);
-
-    auto srcIntensityHarrisKeypointsPtr =
-        detector.computeHarris3DKeypoints(sourceNormalsPtr, harrisSearchRadius, harrisThreshold);
-    auto trgIntensityHarrisKeypointsPtr =
-        detector.computeHarris3DKeypoints(targetNormalsPtr, harrisSearchRadius, harrisThreshold);
-
-    Descriptor descriptor;
-    double fpfhSearchRadius = settings.getValue(FPFH_SEARCH_RADIUS);
-    auto sourceFPFHHarris =
-        descriptor.computeFPFH(sourceCloudPtr, sourceNormalsPtr, srcIntensityHarrisKeypointsPtr,
-                               treeNormals, fpfhSearchRadius);
-    auto targetFPFHHarris =
-        descriptor.computeFPFH(targetCloudPtr, targetNormalsPtr, trgIntensityHarrisKeypointsPtr,
-                               treeNormals, fpfhSearchRadius);
-
-    SearchingMethods sac;
-    double minSampleDist = settings.getValue(SACIA_MIN_SAMPLE_DIST);
-    double maxCorrespondDist = settings.getValue(SACIA_MAX_CORRESPONDENCE_DIST);
-    int numIterations = static_cast<int>(std::lround(settings.getValue(SACIA_NUM_ITERATIONS)));
-    int numSamples = static_cast<int>(std::lround(settings.getValue(SACIA_NUM_SAMPLES)));
-
-    auto coarse_transformation = sac.computeSACInitialAlignment(
-        srcIntensityHarrisKeypointsPtr, trgIntensityHarrisKeypointsPtr, sourceFPFHHarris,
-        targetFPFHHarris, minSampleDist, maxCorrespondDist, numIterations, numSamples);
-
-    // Apply coarse transformation
-    auto coarseTransformedCloudPtr = PointCloudPtr(new PointCloud);
-    pcl::transformPointCloud(*sourceCloudPtr, *coarseTransformedCloudPtr, coarse_transformation);
-
-    // Optional ICP fine registration
-    Eigen::Matrix4f final_transformation = coarse_transformation;
-    bool icp_enabled = false;
-    if (settings.exists(ICP_ENABLED) && settings.getValue(ICP_ENABLED) > 0.5) {
-        icp_enabled = true;
-        double icpMaxCorrespondDist = settings.getValue(ICP_MAX_CORRESPONDENCE_DIST);
-        int icpMaxIterations = static_cast<int>(std::lround(settings.getValue(ICP_MAX_ITERATIONS)));
-        double icpTransformEpsilon = settings.getValue(ICP_TRANSFORMATION_EPSILON);
-        double icpEuclideanEpsilon = settings.getValue(ICP_EUCLIDEAN_EPSILON);
-
-        SearchingMethods searching;
-        Eigen::Matrix4f icp_transformation =
-            searching.computeICP(coarseTransformedCloudPtr, targetCloudPtr, icpMaxCorrespondDist,
-                                 icpMaxIterations, icpTransformEpsilon, icpEuclideanEpsilon);
-
-        // Combine transformations: final = icp * coarse
-        final_transformation = icp_transformation * coarse_transformation;
-    }
-
-    auto transformedCloudPtr = PointCloudPtr(new PointCloud);
-    pcl::transformPointCloud(*sourceCloudPtr, *transformedCloudPtr, final_transformation);
-
-    return {sourceCloudPtr,
-            targetCloudPtr,
-            transformedCloudPtr,
-            srcIntensityHarrisKeypointsPtr,
-            trgIntensityHarrisKeypointsPtr,
-            final_transformation};
-}
-
-pipelineISSOutputPtr issPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr,
-                                 Settings settings) {
-    double normalsSearchRadius = settings.getValue(NORMALS_SEARCH_RADIUS);
-
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormals(new pcl::search::KdTree<pcl::PointXYZ>);
-    auto sourceNormalsPtr = computePointNormals(sourceCloudPtr, treeNormals, normalsSearchRadius);
-    auto targetNormalsPtr = computePointNormals(targetCloudPtr, treeNormals, normalsSearchRadius);
-
-    Detector detector;
-    double issSalientRadius = settings.getValue(ISS_SALIENT_RADIUS);
-    double issNonMaxRadius = settings.getValue(ISS_NON_MAX_RADIUS);
-    double issThreshold21 = settings.getValue(ISS_THRESHOLD_21);
-    double issThreshold32 = settings.getValue(ISS_THRESHOLD_32);
-    int issMinNeighbors = static_cast<int>(std::lround(settings.getValue(ISS_MIN_NEIGHBORS)));
-
-    auto sourceISSKeypointsPtr =
-        detector.computeISSKeypoints(sourceNormalsPtr, issSalientRadius, issNonMaxRadius,
-                                     issThreshold21, issThreshold32, issMinNeighbors);
-    auto targetISSKeypointsPtr =
-        detector.computeISSKeypoints(targetNormalsPtr, issSalientRadius, issNonMaxRadius,
-                                     issThreshold21, issThreshold32, issMinNeighbors);
-
-    Descriptor descriptor;
-    double fpfhSearchRadius = settings.getValue(FPFH_SEARCH_RADIUS);
-    auto sourceFPFHISS = descriptor.computeFPFH(
-        sourceCloudPtr, sourceNormalsPtr, sourceISSKeypointsPtr, treeNormals, fpfhSearchRadius);
-    auto targetFPFHISS = descriptor.computeFPFH(
-        targetCloudPtr, targetNormalsPtr, targetISSKeypointsPtr, treeNormals, fpfhSearchRadius);
-
-    SearchingMethods sac;
-    double minSampleDist = settings.getValue(SACIA_MIN_SAMPLE_DIST);
-    double maxCorrespondDist = settings.getValue(SACIA_MAX_CORRESPONDENCE_DIST);
-    int numIterations = static_cast<int>(std::lround(settings.getValue(SACIA_NUM_ITERATIONS)));
-    int numSamples = static_cast<int>(std::lround(settings.getValue(SACIA_NUM_SAMPLES)));
-
-    auto coarse_transformation = sac.computeSACInitialAlignment(
-        sourceISSKeypointsPtr, targetISSKeypointsPtr, sourceFPFHISS, targetFPFHISS, minSampleDist,
-        maxCorrespondDist, numIterations, numSamples);
-
-    // Apply coarse transformation
-    auto coarseTransformedCloudPtr = PointCloudPtr(new PointCloud);
-    pcl::transformPointCloud(*sourceCloudPtr, *coarseTransformedCloudPtr, coarse_transformation);
-
-    // Optional ICP fine registration
-    Eigen::Matrix4f final_transformation = coarse_transformation;
-    bool icp_enabled = false;
-    if (settings.exists(ICP_ENABLED) && settings.getValue(ICP_ENABLED) > 0.5) {
-        icp_enabled = true;
-        double icpMaxCorrespondDist = settings.getValue(ICP_MAX_CORRESPONDENCE_DIST);
-        int icpMaxIterations = static_cast<int>(std::lround(settings.getValue(ICP_MAX_ITERATIONS)));
-        double icpTransformEpsilon = settings.getValue(ICP_TRANSFORMATION_EPSILON);
-        double icpEuclideanEpsilon = settings.getValue(ICP_EUCLIDEAN_EPSILON);
-
-        SearchingMethods searching;
-        Eigen::Matrix4f icp_transformation =
-            searching.computeICP(coarseTransformedCloudPtr, targetCloudPtr, icpMaxCorrespondDist,
-                                 icpMaxIterations, icpTransformEpsilon, icpEuclideanEpsilon);
-
-        // Combine transformations: final = icp * coarse
-        final_transformation = icp_transformation * coarse_transformation;
-    }
-
-    auto transformedCloudPtr = PointCloudPtr(new PointCloud);
-    pcl::transformPointCloud(*sourceCloudPtr, *transformedCloudPtr, final_transformation);
-
-    return {sourceCloudPtr,        targetCloudPtr,        transformedCloudPtr,
-            sourceISSKeypointsPtr, targetISSKeypointsPtr, final_transformation};
-}
-
-pipelineAllPointsOutputPtr pipelineAllPoints(PointCloudPtr sourceCloudPtr,
-                                             PointCloudPtr targetCloudPtr, Settings settings) {
-    double normalsSearchRadius = settings.getValue(NORMALS_SEARCH_RADIUS);
-
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormals(new pcl::search::KdTree<pcl::PointXYZ>);
-    auto sourceNormalsPtr = computePointNormals(sourceCloudPtr, treeNormals, normalsSearchRadius);
-    auto targetNormalsPtr = computePointNormals(targetCloudPtr, treeNormals, normalsSearchRadius);
-
-    Descriptor descriptor;
-    double fpfhSearchRadius = settings.getValue(FPFH_SEARCH_RADIUS);
-    auto sourceFPFHAll =
-        descriptor.computeFPFH(sourceCloudPtr, sourceNormalsPtr, treeNormals, fpfhSearchRadius);
-    auto targetFPFHAll =
-        descriptor.computeFPFH(targetCloudPtr, targetNormalsPtr, treeNormals, fpfhSearchRadius);
-
-    SearchingMethods sac;
-    double minSampleDist = settings.getValue(SACIA_MIN_SAMPLE_DIST);
-    double maxCorrespondDist = settings.getValue(SACIA_MAX_CORRESPONDENCE_DIST);
-    int numIterations = static_cast<int>(std::lround(settings.getValue(SACIA_NUM_ITERATIONS)));
-    int numSamples = static_cast<int>(std::lround(settings.getValue(SACIA_NUM_SAMPLES)));
-
-    auto coarse_transformation =
-        sac.computeSACInitialAlignment(sourceCloudPtr, targetCloudPtr, sourceFPFHAll, targetFPFHAll,
-                                       minSampleDist, maxCorrespondDist, numIterations, numSamples);
-
-    // Apply coarse transformation
-    auto coarseTransformedCloudPtr = PointCloudPtr(new PointCloud);
-    pcl::transformPointCloud(*sourceCloudPtr, *coarseTransformedCloudPtr, coarse_transformation);
-
-    // Optional ICP fine registration
-    Eigen::Matrix4f final_transformation = coarse_transformation;
-    bool icp_enabled = false;
-    if (settings.exists(ICP_ENABLED) && settings.getValue(ICP_ENABLED) > 0.5) {
-        icp_enabled = true;
-        double icpMaxCorrespondDist = settings.getValue(ICP_MAX_CORRESPONDENCE_DIST);
-        int icpMaxIterations = static_cast<int>(std::lround(settings.getValue(ICP_MAX_ITERATIONS)));
-        double icpTransformEpsilon = settings.getValue(ICP_TRANSFORMATION_EPSILON);
-        double icpEuclideanEpsilon = settings.getValue(ICP_EUCLIDEAN_EPSILON);
-
-        SearchingMethods searching;
-        Eigen::Matrix4f icp_transformation =
-            searching.computeICP(coarseTransformedCloudPtr, targetCloudPtr, icpMaxCorrespondDist,
-                                 icpMaxIterations, icpTransformEpsilon, icpEuclideanEpsilon);
-
-        // Combine transformations: final = icp * coarse
-        final_transformation = icp_transformation * coarse_transformation;
-    }
-
-    auto transformedCloudPtr = PointCloudPtr(new PointCloud);
-    pcl::transformPointCloud(*sourceCloudPtr, *transformedCloudPtr, final_transformation);
-
-    return {sourceCloudPtr, targetCloudPtr, transformedCloudPtr, final_transformation};
-}
-
-pipelineAllPointsOutputPtr shotPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr,
-                                        Settings settings) {
-    double normalsSearchRadius = settings.getValue(NORMALS_SEARCH_RADIUS);
-
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormals(new pcl::search::KdTree<pcl::PointXYZ>);
-    auto sourceNormalsPtr = computePointNormals(sourceCloudPtr, treeNormals, normalsSearchRadius);
-    auto targetNormalsPtr = computePointNormals(targetCloudPtr, treeNormals, normalsSearchRadius);
-
-    Descriptor descriptor;
-    double shotSearchRadius = settings.getValue(SHOT_SEARCH_RADIUS);
-    auto sourceSHOTAll =
-        descriptor.computeSHOT(sourceCloudPtr, sourceNormalsPtr, treeNormals, shotSearchRadius);
-    auto targetSHOTAll =
-        descriptor.computeSHOT(targetCloudPtr, targetNormalsPtr, treeNormals, shotSearchRadius);
-
-    SearchingMethods sac;
-    double minSampleDist = settings.getValue(SACIA_MIN_SAMPLE_DIST);
-    double maxCorrespondDist = settings.getValue(SACIA_MAX_CORRESPONDENCE_DIST);
-    int numIterations = static_cast<int>(std::lround(settings.getValue(SACIA_NUM_ITERATIONS)));
-    int numSamples = static_cast<int>(std::lround(settings.getValue(SACIA_NUM_SAMPLES)));
-
-    auto coarse_transformation =
-        sac.computeSACInitialAlignment(sourceCloudPtr, targetCloudPtr, sourceSHOTAll, targetSHOTAll,
-                                       minSampleDist, maxCorrespondDist, numIterations, numSamples);
-
-    // Apply coarse transformation
-    auto coarseTransformedCloudPtr = PointCloudPtr(new PointCloud);
-    pcl::transformPointCloud(*sourceCloudPtr, *coarseTransformedCloudPtr, coarse_transformation);
-
-    // Optional ICP fine registration
-    Eigen::Matrix4f final_transformation = coarse_transformation;
-    bool icp_enabled = false;
-    if (settings.exists(ICP_ENABLED) && settings.getValue(ICP_ENABLED) > 0.5) {
-        icp_enabled = true;
-        double icpMaxCorrespondDist = settings.getValue(ICP_MAX_CORRESPONDENCE_DIST);
-        int icpMaxIterations = static_cast<int>(std::lround(settings.getValue(ICP_MAX_ITERATIONS)));
-        double icpTransformEpsilon = settings.getValue(ICP_TRANSFORMATION_EPSILON);
-        double icpEuclideanEpsilon = settings.getValue(ICP_EUCLIDEAN_EPSILON);
-
-        SearchingMethods searching;
-        Eigen::Matrix4f icp_transformation =
-            searching.computeICP(coarseTransformedCloudPtr, targetCloudPtr, icpMaxCorrespondDist,
-                                 icpMaxIterations, icpTransformEpsilon, icpEuclideanEpsilon);
-
-        // Combine transformations: final = icp * coarse
-        final_transformation = icp_transformation * coarse_transformation;
-    }
-
-    auto transformedCloudPtr = PointCloudPtr(new PointCloud);
-    pcl::transformPointCloud(*sourceCloudPtr, *transformedCloudPtr, final_transformation);
-
-    return {sourceCloudPtr, targetCloudPtr, transformedCloudPtr, final_transformation};
-}

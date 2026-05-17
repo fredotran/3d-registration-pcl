@@ -140,3 +140,62 @@ TEST(ErrorMetricsTest, AppendTimestamp) {
     // Should not have extension
     EXPECT_TRUE(result.find(".csv") == std::string::npos);
 }
+
+TEST(ErrorMetricsTest, MeanTargetRegistrationErrorEmptyClouds) {
+    auto empty1 = PointCloudPtr(new PointCloud);
+    auto empty2 = PointCloudPtr(new PointCloud);
+    EXPECT_DOUBLE_EQ(meanTargetRegistrationError(empty1, empty2), 0.0);
+}
+
+TEST(ErrorMetricsTest, RootMeanSquareErrorEmptyClouds) {
+    auto empty1 = PointCloudPtr(new PointCloud);
+    auto empty2 = PointCloudPtr(new PointCloud);
+    EXPECT_DOUBLE_EQ(rootMeanSquareError(empty1, empty2), 0.0);
+}
+
+TEST(ErrorMetricsTest, InlierRatioEmptyClouds) {
+    auto empty1 = PointCloudPtr(new PointCloud);
+    auto empty2 = PointCloudPtr(new PointCloud);
+    EXPECT_DOUBLE_EQ(inlierRatio(empty1, empty2, 1.0), 0.0);
+}
+
+TEST(ErrorMetricsTest, RegistrationErrorBiasEmptyClouds) {
+    auto empty1 = PointCloudPtr(new PointCloud);
+    auto empty2 = PointCloudPtr(new PointCloud);
+    auto [bias_x, bias_y, bias_z] = registrationErrorBias(empty1, empty2);
+    EXPECT_DOUBLE_EQ(bias_x, 0.0);
+    EXPECT_DOUBLE_EQ(bias_y, 0.0);
+    EXPECT_DOUBLE_EQ(bias_z, 0.0);
+}
+
+TEST(ErrorMetricsTest, MeanTargetRegistrationErrorSinglePoint) {
+    auto cloud1 = PointCloudPtr(new PointCloud);
+    auto cloud2 = PointCloudPtr(new PointCloud);
+    cloud1->push_back(pcl::PointXYZ(0.0, 0.0, 0.0));
+    cloud2->push_back(pcl::PointXYZ(3.0, 4.0, 0.0));
+    EXPECT_NEAR(meanTargetRegistrationError(cloud1, cloud2), 5.0, 1e-5);
+}
+
+TEST(ErrorMetricsTest, RootMeanSquareErrorSinglePoint) {
+    auto cloud1 = PointCloudPtr(new PointCloud);
+    auto cloud2 = PointCloudPtr(new PointCloud);
+    cloud1->push_back(pcl::PointXYZ(0.0, 0.0, 0.0));
+    cloud2->push_back(pcl::PointXYZ(3.0, 4.0, 0.0));
+    EXPECT_NEAR(rootMeanSquareError(cloud1, cloud2), 5.0, 1e-5);
+}
+
+TEST(ErrorMetricsTest, InlierRatioSinglePointInlier) {
+    auto cloud1 = PointCloudPtr(new PointCloud);
+    auto cloud2 = PointCloudPtr(new PointCloud);
+    cloud1->push_back(pcl::PointXYZ(0.0, 0.0, 0.0));
+    cloud2->push_back(pcl::PointXYZ(0.1, 0.0, 0.0));
+    EXPECT_DOUBLE_EQ(inlierRatio(cloud1, cloud2, 1.0), 1.0);
+}
+
+TEST(ErrorMetricsTest, InlierRatioSinglePointOutlier) {
+    auto cloud1 = PointCloudPtr(new PointCloud);
+    auto cloud2 = PointCloudPtr(new PointCloud);
+    cloud1->push_back(pcl::PointXYZ(0.0, 0.0, 0.0));
+    cloud2->push_back(pcl::PointXYZ(10.0, 0.0, 0.0));
+    EXPECT_DOUBLE_EQ(inlierRatio(cloud1, cloud2, 1.0), 0.0);
+}

@@ -1,6 +1,21 @@
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 project(pcl_registration VERSION 1.0.0 LANGUAGES CXX C)
 
+# Default build type
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    message(STATUS "Setting build type to 'Release' as none was specified.")
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
+
+# ccache support
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+    message(STATUS "ccache found: ${CCACHE_PROGRAM}")
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK "${CCACHE_PROGRAM}")
+endif()
+
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,17 +28,26 @@ option(BUILD_TOOLS "Build utility tools" ON)
 option(BUILD_BENCHMARKS "Build benchmark executables" OFF)
 option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(USE_OPENMP "Enable OpenMP parallelization" ON)
+option(ENABLE_SANITIZERS "Enable AddressSanitizer and UBSan" OFF)
 
-# Compiler warnings
+# Sanitizers
+if(ENABLE_SANITIZERS)
+    message(STATUS "Sanitizers enabled: AddressSanitizer + UBSan")
+    add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address,undefined)
+endif()
+
+# Interface target for compiler warnings (target-based, not global)
+add_library(project_warnings INTERFACE)
 if(MSVC)
-    add_compile_options(/W4)
+    target_compile_options(project_warnings INTERFACE /W4)
     if(WARNINGS_AS_ERRORS)
-        add_compile_options(/WX)
+        target_compile_options(project_warnings INTERFACE /WX)
     endif()
 else()
-    add_compile_options(-Wall -Wextra -Wpedantic)
+    target_compile_options(project_warnings INTERFACE -Wall -Wextra -Wpedantic)
     if(WARNINGS_AS_ERRORS)
-        add_compile_options(-Werror)
+        target_compile_options(project_warnings INTERFACE -Werror)
     endif()
 endif()
 
@@ -55,9 +79,14 @@ endif()
 # Create library target for common code
 add_library(pcl_registration_lib
     src/parameters.cpp
+    src/randomization.cpp
+    src/file_io.cpp
+    src/registration.cpp
+    src/tools.cpp
+    src/visualization_tools.cpp
 )
 
-target_link_libraries(pcl_registration_lib ${PCL_LIBRARIES})
+target_link_libraries(pcl_registration_lib ${PCL_LIBRARIES} project_warnings)
 if(OpenMP_FOUND)
     target_link_libraries(pcl_registration_lib OpenMP::OpenMP_CXX)
 endif()
@@ -69,37 +98,37 @@ target_include_directories(pcl_registration_lib PUBLIC
 # Main registration executable
 if(BUILD_EXAMPLES)
     add_executable(main_registration src/main_registration.cpp)
-    target_link_libraries(main_registration pcl_registration_lib ${PCL_LIBRARIES})
+    target_link_libraries(main_registration pcl_registration_lib ${PCL_LIBRARIES} project_warnings)
 
     add_executable(experiment2 src/experiment2.cpp)
-    target_link_libraries(experiment2 pcl_registration_lib ${PCL_LIBRARIES})
+    target_link_libraries(experiment2 pcl_registration_lib ${PCL_LIBRARIES} project_warnings)
 
     add_executable(experiment2_ds src/experiment2_ds.cpp)
-    target_link_libraries(experiment2_ds pcl_registration_lib ${PCL_LIBRARIES})
+    target_link_libraries(experiment2_ds pcl_registration_lib ${PCL_LIBRARIES} project_warnings)
 
     add_executable(verification_test1 src/verification_test1.cpp)
-    target_link_libraries(verification_test1 pcl_registration_lib ${PCL_LIBRARIES})
+    target_link_libraries(verification_test1 pcl_registration_lib ${PCL_LIBRARIES} project_warnings)
 
     add_executable(verification_test2 src/verification_test2.cpp)
-    target_link_libraries(verification_test2 pcl_registration_lib ${PCL_LIBRARIES})
+    target_link_libraries(verification_test2 pcl_registration_lib ${PCL_LIBRARIES} project_warnings)
 
     add_executable(fred_exp_sacia_param_grid_search src/fred_exp_sacia_param_grid_search.cpp)
-    target_link_libraries(fred_exp_sacia_param_grid_search pcl_registration_lib ${PCL_LIBRARIES})
+    target_link_libraries(fred_exp_sacia_param_grid_search pcl_registration_lib ${PCL_LIBRARIES} project_warnings)
 
     add_executable(exp_sacia_param_grid_search src/exp_sacia_param_grid_search.cpp)
-    target_link_libraries(exp_sacia_param_grid_search pcl_registration_lib ${PCL_LIBRARIES})
+    target_link_libraries(exp_sacia_param_grid_search pcl_registration_lib ${PCL_LIBRARIES} project_warnings)
 endif()
 
 # Utility tools
 if(BUILD_TOOLS)
     add_executable(visualization src/visualization.cpp)
-    target_link_libraries(visualization pcl_registration_lib ${PCL_LIBRARIES})
+    target_link_libraries(visualization pcl_registration_lib ${PCL_LIBRARIES} project_warnings)
 
     add_executable(cpp_version src/cpp_version.cpp)
-    target_link_libraries(cpp_version pcl_registration_lib ${PCL_LIBRARIES})
+    target_link_libraries(cpp_version pcl_registration_lib ${PCL_LIBRARIES} project_warnings)
 
     add_executable(point_cloud_converter src/point_cloud_converter.cpp)
-    target_link_libraries(point_cloud_converter pcl_registration_lib ${PCL_LIBRARIES})
+    target_link_libraries(point_cloud_converter pcl_registration_lib ${PCL_LIBRARIES} project_warnings)
 endif()
 
 # Testing

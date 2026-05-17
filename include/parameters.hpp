@@ -47,7 +47,10 @@
 #include <pcl/registration/ia_ransac.h>
 #include <pcl/registration/icp.h>
 #include <pcl/registration/icp_nl.h>
+#include <pcl/registration/correspondence_estimation.h>
+#include <pcl/registration/correspondence_rejection_distance.h>
 #include <pcl/registration/sample_consensus_prerejective.h>
+#include <pcl/registration/transformation_estimation_svd.h>
 
 // Additional detectors
 #include <pcl/keypoints/iss_3d.h>
@@ -139,5 +142,11 @@ constexpr const char* ISS_THRESHOLD_21 = "iss.threshold21";
 constexpr const char* ISS_THRESHOLD_32 = "iss.threshold32";
 constexpr const char* ISS_MIN_NEIGHBORS = "iss.minNeighbors";
 constexpr const char* ISS_ENABLED = "iss.enabled";
+
+// Preprocessing parameters
+constexpr const char* PREPROCESSING_VOXEL_LEAF_SIZE = "preprocessing.voxelLeafSize";
+
+// Correspondence rejection parameters
+constexpr const char* REJECTION_MAX_DISTANCE = "rejection.maxDistance";
 
 Settings getPipelineDefaultSettings();
