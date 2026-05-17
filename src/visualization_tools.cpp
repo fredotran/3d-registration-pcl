@@ -1,9 +1,9 @@
 #include "visualization_tools.hpp"
 
+#include <pcl/visualization/pcl_visualizer.h>
+
 #include <iostream>
 #include <string>
-
-#include <pcl/visualization/pcl_visualizer.h>
 
 /* Method to visualize single point cloud */
 void visualizeSinglePointCloud(PointCloudPtr inputCloudPtr) {

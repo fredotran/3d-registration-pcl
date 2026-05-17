@@ -22,11 +22,13 @@ PointCloudPtr loadingCloud(const std::string& fileName) {
     } else if (ext == "obj") {
         pcl::PolygonMesh mesh;
         result = pcl::io::loadOBJFile(fileName, mesh);
-        if (result == 0) pcl::fromPCLPointCloud2(mesh.cloud, *cloudPtr);
+        if (result == 0)
+            pcl::fromPCLPointCloud2(mesh.cloud, *cloudPtr);
     } else if (ext == "vtk") {
         pcl::PolygonMesh mesh;
         result = pcl::io::loadPolygonFileVTK(fileName, mesh);
-        if (result == 0) pcl::fromPCLPointCloud2(mesh.cloud, *cloudPtr);
+        if (result == 0)
+            pcl::fromPCLPointCloud2(mesh.cloud, *cloudPtr);
     } else {
         throw std::runtime_error("Unsupported file format: " + ext + " for file: " + fileName);
     }
@@ -150,7 +152,8 @@ PointCloudPtr computeReferenceCloud(PointCloudPtr surfaceModelCloudPtr, double* 
                                     double sourceWidth, double sourceHeight, double x_uncertainty,
                                     double y_uncertainty) {
     if (!surfaceModelCloudPtr || surfaceModelCloudPtr->empty()) {
-        throw std::runtime_error("computeReferenceCloud: input surface model cloud is null or empty");
+        throw std::runtime_error(
+            "computeReferenceCloud: input surface model cloud is null or empty");
     }
     auto outPointCloudPtr = PointCloudPtr(new PointCloud);
 
@@ -378,7 +381,8 @@ double meanTargetRegistrationError(const PointCloudPtr& srcPointCloudPtr,
         sum += distance(coordinatesSrc[i], coordinatesSrcTransformed[i]);
     }
 
-    if (count == 0) return 0.0;
+    if (count == 0)
+        return 0.0;
     return sum / count;
 }
 
@@ -398,7 +402,8 @@ double rootMeanSquareError(const PointCloudPtr& srcPointCloudPtr,
         sum_squared += dist * dist;
     }
 
-    if (count == 0) return 0.0;
+    if (count == 0)
+        return 0.0;
     return std::sqrt(sum_squared / count);
 }
 
@@ -420,7 +425,8 @@ double inlierRatio(const PointCloudPtr& srcPointCloudPtr,
         }
     }
 
-    if (count == 0) return 0.0;
+    if (count == 0)
+        return 0.0;
     return static_cast<double>(inliers) / count;
 }
 

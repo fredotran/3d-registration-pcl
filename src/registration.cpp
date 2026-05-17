@@ -2,9 +2,11 @@
 
 static void applyVoxelDownsampling(PointCloudPtr& sourceCloudPtr, PointCloudPtr& targetCloudPtr,
                                    const Settings& settings) {
-    if (!settings.exists(PREPROCESSING_VOXEL_LEAF_SIZE)) return;
+    if (!settings.exists(PREPROCESSING_VOXEL_LEAF_SIZE))
+        return;
     float leafSize = static_cast<float>(settings.getValue(PREPROCESSING_VOXEL_LEAF_SIZE));
-    if (leafSize <= 0.0f) return;
+    if (leafSize <= 0.0f)
+        return;
 
     pcl::VoxelGrid<pcl::PointXYZ> vg;
     vg.setLeafSize(leafSize, leafSize, leafSize);
@@ -12,15 +14,15 @@ static void applyVoxelDownsampling(PointCloudPtr& sourceCloudPtr, PointCloudPtr&
     auto srcDS = PointCloudPtr(new PointCloud);
     vg.setInputCloud(sourceCloudPtr);
     vg.filter(*srcDS);
-    std::cout << "Voxel downsampling source: " << sourceCloudPtr->size() << " -> "
-              << srcDS->size() << " points" << std::endl;
+    std::cout << "Voxel downsampling source: " << sourceCloudPtr->size() << " -> " << srcDS->size()
+              << " points" << std::endl;
     sourceCloudPtr = srcDS;
 
     auto tgtDS = PointCloudPtr(new PointCloud);
     vg.setInputCloud(targetCloudPtr);
     vg.filter(*tgtDS);
-    std::cout << "Voxel downsampling target: " << targetCloudPtr->size() << " -> "
-              << tgtDS->size() << " points" << std::endl;
+    std::cout << "Voxel downsampling target: " << targetCloudPtr->size() << " -> " << tgtDS->size()
+              << " points" << std::endl;
     targetCloudPtr = tgtDS;
 }
 
@@ -28,9 +30,11 @@ static void applyCorrespondenceRejection(Eigen::Matrix4f& coarse_transformation,
                                          PointCloudPtr& coarseTransformedCloudPtr,
                                          PointCloudPtr sourceCloudPtr, PointCloudPtr targetCloudPtr,
                                          const Settings& settings) {
-    if (!settings.exists(REJECTION_MAX_DISTANCE)) return;
+    if (!settings.exists(REJECTION_MAX_DISTANCE))
+        return;
     double rejectionDist = settings.getValue(REJECTION_MAX_DISTANCE);
-    if (rejectionDist <= 0.0) return;
+    if (rejectionDist <= 0.0)
+        return;
 
     pcl::registration::CorrespondenceEstimation<pcl::PointXYZ, pcl::PointXYZ> corrEst;
     corrEst.setInputSource(coarseTransformedCloudPtr);
@@ -53,7 +57,8 @@ static void applyCorrespondenceRejection(Eigen::Matrix4f& coarse_transformation,
         svd.estimateRigidTransformation(*coarseTransformedCloudPtr, *targetCloudPtr, filtered,
                                         refined);
         coarse_transformation = refined * coarse_transformation;
-        pcl::transformPointCloud(*sourceCloudPtr, *coarseTransformedCloudPtr, coarse_transformation);
+        pcl::transformPointCloud(*sourceCloudPtr, *coarseTransformedCloudPtr,
+                                 coarse_transformation);
     }
 }
 
@@ -103,10 +108,14 @@ pipelineSiftOutputPtr siftPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr t
     applyVoxelDownsampling(sourceCloudPtr, targetCloudPtr, settings);
     double normalsSearchRadius = settings.getValue(NORMALS_SEARCH_RADIUS);
 
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsSource(new pcl::search::KdTree<pcl::PointXYZ>);
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsTarget(new pcl::search::KdTree<pcl::PointXYZ>);
-    auto sourceNormalsPtr = computePointNormals(sourceCloudPtr, treeNormalsSource, normalsSearchRadius);
-    auto targetNormalsPtr = computePointNormals(targetCloudPtr, treeNormalsTarget, normalsSearchRadius);
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsSource(
+        new pcl::search::KdTree<pcl::PointXYZ>);
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsTarget(
+        new pcl::search::KdTree<pcl::PointXYZ>);
+    auto sourceNormalsPtr =
+        computePointNormals(sourceCloudPtr, treeNormalsSource, normalsSearchRadius);
+    auto targetNormalsPtr =
+        computePointNormals(targetCloudPtr, treeNormalsTarget, normalsSearchRadius);
 
     Detector detector;
     double minScaleSource = settings.getValue(SIFT_MIN_SCALE_SOURCE);
@@ -127,10 +136,12 @@ pipelineSiftOutputPtr siftPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr t
 
     Descriptor descriptor;
     double fpfhSearchRadius = settings.getValue(FPFH_SEARCH_RADIUS);
-    auto sourceFPFHSift = descriptor.computeFPFH(
-        sourceCloudPtr, sourceNormalsPtr, sourceSiftKeypointsPtr, treeNormalsSource, fpfhSearchRadius);
-    auto targetFPFHSift = descriptor.computeFPFH(
-        targetCloudPtr, targetNormalsPtr, targetSiftKeypointsPtr, treeNormalsTarget, fpfhSearchRadius);
+    auto sourceFPFHSift =
+        descriptor.computeFPFH(sourceCloudPtr, sourceNormalsPtr, sourceSiftKeypointsPtr,
+                               treeNormalsSource, fpfhSearchRadius);
+    auto targetFPFHSift =
+        descriptor.computeFPFH(targetCloudPtr, targetNormalsPtr, targetSiftKeypointsPtr,
+                               treeNormalsTarget, fpfhSearchRadius);
 
     SearchingMethods sac;
     double minSampleDist = settings.getValue(SACIA_MIN_SAMPLE_DIST);
@@ -177,10 +188,14 @@ pipelineHarrisOutputPtr harrisPipeline(PointCloudPtr sourceCloudPtr, PointCloudP
     applyVoxelDownsampling(sourceCloudPtr, targetCloudPtr, settings);
     double normalsSearchRadius = settings.getValue(NORMALS_SEARCH_RADIUS);
 
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsSource(new pcl::search::KdTree<pcl::PointXYZ>);
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsTarget(new pcl::search::KdTree<pcl::PointXYZ>);
-    auto sourceNormalsPtr = computePointNormals(sourceCloudPtr, treeNormalsSource, normalsSearchRadius);
-    auto targetNormalsPtr = computePointNormals(targetCloudPtr, treeNormalsTarget, normalsSearchRadius);
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsSource(
+        new pcl::search::KdTree<pcl::PointXYZ>);
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsTarget(
+        new pcl::search::KdTree<pcl::PointXYZ>);
+    auto sourceNormalsPtr =
+        computePointNormals(sourceCloudPtr, treeNormalsSource, normalsSearchRadius);
+    auto targetNormalsPtr =
+        computePointNormals(targetCloudPtr, treeNormalsTarget, normalsSearchRadius);
 
     Detector detector;
     double harrisSearchRadius = settings.getValue(HARRIS_SEARCH_RADIUS);
@@ -247,10 +262,14 @@ pipelineISSOutputPtr issPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr tar
     applyVoxelDownsampling(sourceCloudPtr, targetCloudPtr, settings);
     double normalsSearchRadius = settings.getValue(NORMALS_SEARCH_RADIUS);
 
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsSource(new pcl::search::KdTree<pcl::PointXYZ>);
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsTarget(new pcl::search::KdTree<pcl::PointXYZ>);
-    auto sourceNormalsPtr = computePointNormals(sourceCloudPtr, treeNormalsSource, normalsSearchRadius);
-    auto targetNormalsPtr = computePointNormals(targetCloudPtr, treeNormalsTarget, normalsSearchRadius);
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsSource(
+        new pcl::search::KdTree<pcl::PointXYZ>);
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsTarget(
+        new pcl::search::KdTree<pcl::PointXYZ>);
+    auto sourceNormalsPtr =
+        computePointNormals(sourceCloudPtr, treeNormalsSource, normalsSearchRadius);
+    auto targetNormalsPtr =
+        computePointNormals(targetCloudPtr, treeNormalsTarget, normalsSearchRadius);
 
     Detector detector;
     double issSalientRadius = settings.getValue(ISS_SALIENT_RADIUS);
@@ -268,10 +287,12 @@ pipelineISSOutputPtr issPipeline(PointCloudPtr sourceCloudPtr, PointCloudPtr tar
 
     Descriptor descriptor;
     double fpfhSearchRadius = settings.getValue(FPFH_SEARCH_RADIUS);
-    auto sourceFPFHISS = descriptor.computeFPFH(
-        sourceCloudPtr, sourceNormalsPtr, sourceISSKeypointsPtr, treeNormalsSource, fpfhSearchRadius);
-    auto targetFPFHISS = descriptor.computeFPFH(
-        targetCloudPtr, targetNormalsPtr, targetISSKeypointsPtr, treeNormalsTarget, fpfhSearchRadius);
+    auto sourceFPFHISS =
+        descriptor.computeFPFH(sourceCloudPtr, sourceNormalsPtr, sourceISSKeypointsPtr,
+                               treeNormalsSource, fpfhSearchRadius);
+    auto targetFPFHISS =
+        descriptor.computeFPFH(targetCloudPtr, targetNormalsPtr, targetISSKeypointsPtr,
+                               treeNormalsTarget, fpfhSearchRadius);
 
     SearchingMethods sac;
     double minSampleDist = settings.getValue(SACIA_MIN_SAMPLE_DIST);
@@ -316,17 +337,21 @@ pipelineAllPointsOutputPtr pipelineAllPoints(PointCloudPtr sourceCloudPtr,
     applyVoxelDownsampling(sourceCloudPtr, targetCloudPtr, settings);
     double normalsSearchRadius = settings.getValue(NORMALS_SEARCH_RADIUS);
 
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsSource(new pcl::search::KdTree<pcl::PointXYZ>);
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsTarget(new pcl::search::KdTree<pcl::PointXYZ>);
-    auto sourceNormalsPtr = computePointNormals(sourceCloudPtr, treeNormalsSource, normalsSearchRadius);
-    auto targetNormalsPtr = computePointNormals(targetCloudPtr, treeNormalsTarget, normalsSearchRadius);
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsSource(
+        new pcl::search::KdTree<pcl::PointXYZ>);
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsTarget(
+        new pcl::search::KdTree<pcl::PointXYZ>);
+    auto sourceNormalsPtr =
+        computePointNormals(sourceCloudPtr, treeNormalsSource, normalsSearchRadius);
+    auto targetNormalsPtr =
+        computePointNormals(targetCloudPtr, treeNormalsTarget, normalsSearchRadius);
 
     Descriptor descriptor;
     double fpfhSearchRadius = settings.getValue(FPFH_SEARCH_RADIUS);
-    auto sourceFPFHAll =
-        descriptor.computeFPFH(sourceCloudPtr, sourceNormalsPtr, treeNormalsSource, fpfhSearchRadius);
-    auto targetFPFHAll =
-        descriptor.computeFPFH(targetCloudPtr, targetNormalsPtr, treeNormalsTarget, fpfhSearchRadius);
+    auto sourceFPFHAll = descriptor.computeFPFH(sourceCloudPtr, sourceNormalsPtr, treeNormalsSource,
+                                                fpfhSearchRadius);
+    auto targetFPFHAll = descriptor.computeFPFH(targetCloudPtr, targetNormalsPtr, treeNormalsTarget,
+                                                fpfhSearchRadius);
 
     SearchingMethods sac;
     double minSampleDist = settings.getValue(SACIA_MIN_SAMPLE_DIST);
@@ -370,17 +395,21 @@ pipelineAllPointsOutputPtr shotPipeline(PointCloudPtr sourceCloudPtr, PointCloud
     applyVoxelDownsampling(sourceCloudPtr, targetCloudPtr, settings);
     double normalsSearchRadius = settings.getValue(NORMALS_SEARCH_RADIUS);
 
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsSource(new pcl::search::KdTree<pcl::PointXYZ>);
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsTarget(new pcl::search::KdTree<pcl::PointXYZ>);
-    auto sourceNormalsPtr = computePointNormals(sourceCloudPtr, treeNormalsSource, normalsSearchRadius);
-    auto targetNormalsPtr = computePointNormals(targetCloudPtr, treeNormalsTarget, normalsSearchRadius);
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsSource(
+        new pcl::search::KdTree<pcl::PointXYZ>);
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr treeNormalsTarget(
+        new pcl::search::KdTree<pcl::PointXYZ>);
+    auto sourceNormalsPtr =
+        computePointNormals(sourceCloudPtr, treeNormalsSource, normalsSearchRadius);
+    auto targetNormalsPtr =
+        computePointNormals(targetCloudPtr, treeNormalsTarget, normalsSearchRadius);
 
     Descriptor descriptor;
     double shotSearchRadius = settings.getValue(SHOT_SEARCH_RADIUS);
-    auto sourceSHOTAll =
-        descriptor.computeSHOT(sourceCloudPtr, sourceNormalsPtr, treeNormalsSource, shotSearchRadius);
-    auto targetSHOTAll =
-        descriptor.computeSHOT(targetCloudPtr, targetNormalsPtr, treeNormalsTarget, shotSearchRadius);
+    auto sourceSHOTAll = descriptor.computeSHOT(sourceCloudPtr, sourceNormalsPtr, treeNormalsSource,
+                                                shotSearchRadius);
+    auto targetSHOTAll = descriptor.computeSHOT(targetCloudPtr, targetNormalsPtr, treeNormalsTarget,
+                                                shotSearchRadius);
 
     SearchingMethods sac;
     double minSampleDist = settings.getValue(SACIA_MIN_SAMPLE_DIST);

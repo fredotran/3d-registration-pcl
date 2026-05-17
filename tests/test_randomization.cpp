@@ -66,10 +66,9 @@ TEST(RandomizationTest, ReferenceCutoutThrowsWhenSizeExceedsWidth) {
     double xUncertainty = 50.0;
     double yUncertainty = 50.0;
 
-    EXPECT_THROW(
-        randomizeReferenceCutout(&seed, surfBoundsX, surfBoundsY, sourceWidth, sourceHeight,
-                                 xUncertainty, yUncertainty),
-        std::runtime_error);
+    EXPECT_THROW(randomizeReferenceCutout(&seed, surfBoundsX, surfBoundsY, sourceWidth,
+                                          sourceHeight, xUncertainty, yUncertainty),
+                 std::runtime_error);
 }
 
 TEST(RandomizationTest, ReferenceCutoutThrowsWhenSizeExceedsHeight) {
@@ -81,10 +80,9 @@ TEST(RandomizationTest, ReferenceCutoutThrowsWhenSizeExceedsHeight) {
     double xUncertainty = 50.0;
     double yUncertainty = 50.0;
 
-    EXPECT_THROW(
-        randomizeReferenceCutout(&seed, surfBoundsX, surfBoundsY, sourceWidth, sourceHeight,
-                                 xUncertainty, yUncertainty),
-        std::runtime_error);
+    EXPECT_THROW(randomizeReferenceCutout(&seed, surfBoundsX, surfBoundsY, sourceWidth,
+                                          sourceHeight, xUncertainty, yUncertainty),
+                 std::runtime_error);
 }
 
 TEST(RandomizationTest, ReferenceCutoutValidInput) {

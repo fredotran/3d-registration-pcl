@@ -1,8 +1,9 @@
 #include "file_io.hpp"
 
+#include <unistd.h>
+
 #include <cstdio>
 #include <ctime>
-#include <unistd.h>
 
 std::string removeExtension(const std::string& filename) {
     size_t lastdot = filename.find_last_of(".");
@@ -25,8 +26,8 @@ void saveResults(const std::string& savedFilename, const StringMap& settingsMap)
 
     std::string filename = savedFilename + ".csv";
     // Use PID + timestamp for unique temp file to avoid concurrent writer collisions
-    std::string tmpFilename = filename + ".tmp." + std::to_string(getpid()) + "." +
-                              std::to_string(std::time(nullptr));
+    std::string tmpFilename =
+        filename + ".tmp." + std::to_string(getpid()) + "." + std::to_string(std::time(nullptr));
     bool fileExists = isFileExists(filename);
 
     // If appending, copy existing content to temp file first
@@ -87,7 +88,7 @@ void saveResults(const std::string& savedFilename, const StringMap& settingsMap)
 }
 
 TupleParameters parametersArray(const std::string& parametersFilename,
-                                       const std::map<std::string, std::string>& parameters) {
+                                const std::map<std::string, std::string>& parameters) {
     try {
         std::string pipelineType = parameters.at("pipelineType");
         std::string typeTransformation = parameters.at("typeTransformation");
@@ -128,10 +129,12 @@ std::map<std::string, std::string> readParameters(const std::string& inputFilena
 
     while (std::getline(inFile, line)) {
         size_t start = line.find_first_not_of(" \t\r\n");
-        if (start == std::string::npos) continue;
+        if (start == std::string::npos)
+            continue;
 
         size_t eqPos = line.find('=');
-        if (eqPos == std::string::npos) continue;
+        if (eqPos == std::string::npos)
+            continue;
 
         std::string key = line.substr(0, eqPos);
         std::string value = line.substr(eqPos + 1);
