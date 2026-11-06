@@ -63,6 +63,11 @@ Scenario A: ±30 m horizontal error per axis, ±5° heading, ±0.5° pitch/roll,
 scale. See `configs/README.md` for details, and point `uav_data_file` at a
 second-epoch cloud for real experiments.
 
+A ready-made benchmark on real public data is provided by
+`configs/benchmark_nibio.txt` (FOR-instance NIBIO boreal forest, UAV laser
+scan patch nested inside a larger reference block).
+`scripts/fetch_benchmark_data.py` downloads and converts the data.
+
 ### Main registration loops
 
 ```bash
