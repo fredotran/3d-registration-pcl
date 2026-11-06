@@ -117,6 +117,9 @@ if(BUILD_EXAMPLES)
 
     add_executable(exp_sacia_param_grid_search src/exp_sacia_param_grid_search.cpp)
     target_link_libraries(exp_sacia_param_grid_search pcl_registration_lib ${PCL_LIBRARIES} project_warnings)
+
+    add_executable(scenario_registration src/scenario_registration.cpp)
+    target_link_libraries(scenario_registration pcl_registration_lib ${PCL_LIBRARIES} project_warnings)
 endif()
 
 # Utility tools

@@ -92,10 +92,46 @@ using PipelineISSOutput =
 using PipelineAllPointsOutput =
     std::tuple<PointCloudPtr, PointCloudPtr, PointCloudPtr, Eigen::Matrix4f>;
 
-using TupleParameters = std::tuple<std::string, std::string, std::string, double, double, double,
-                                   double, double, double, double, double, double, double>;
-using TuplePointCloudPtr =
-    std::tuple<PointCloudPtr, PointCloudPtr, PointCloudPtr, PointCloudPtr, double, double, double>;
+// Experiment parameters parsed from a parameter file.
+// The displacement model follows the a priori error scenarios of
+// Sabel et al., "Vision-based localisation for autonomous aerial navigation
+// in GNSS-denied situations" (ICAS 2022): the UAV cloud (source) is displaced
+// by a random horizontal translation, heading/pitch/roll rotation and a
+// uniform scale factor before registration against the reference cloud.
+struct ExperimentParameters {
+    std::string pipelineType;
+    std::string typeTransformation;
+    // Reference (surface model / PCref) point cloud, e.g. an older survey
+    std::string referenceDataFilename;
+    // Optional second point cloud from a different epoch used to simulate the
+    // UAV point cloud (PCUAV). When empty, the source is cropped from the
+    // reference cloud itself (legacy single-cloud mode).
+    std::string uavDataFilename;
+    // A priori horizontal position uncertainty [m] (legacy mode: used for both
+    // reference extent and source placement; scenario mode: only fallback)
+    double x_uncertainty = 0.0;
+    double y_uncertainty = 0.0;
+    // Source (PCUAV) footprint extent [m]
+    double sourceWidth = 0.0;
+    double sourceHeight = 0.0;
+    // A priori rotation error ranges [deg]: x/y = pitch/roll, z = heading
+    double x_angle_min = 0.0, x_angle_max = 0.0;
+    double y_angle_min = 0.0, y_angle_max = 0.0;
+    double z_angle_min = 0.0, z_angle_max = 0.0;
+    // A priori translation error ranges [m]
+    double x_translation_min = 0.0, x_translation_max = 0.0;
+    double y_translation_min = 0.0, y_translation_max = 0.0;
+    double z_translation_min = 0.0, z_translation_max = 0.0;
+    // A priori scale error range (factor, e.g. 0.98-1.02 for +/-2%)
+    double scale_min = 1.0, scale_max = 1.0;
+};
+
+using TupleParameters = ExperimentParameters;
+// Point clouds and applied displacement returned by the full pipelines:
+// {source, target, sourceTransformed, aligned, angleX, angleY, angleZ,
+//  transX, transY, transZ, scale}
+using TuplePointCloudPtr = std::tuple<PointCloudPtr, PointCloudPtr, PointCloudPtr, PointCloudPtr,
+                                      double, double, double, double, double, double, double>;
 using TupleOfDouble = std::tuple<double, double, double>;
 using TupleOfVectorDouble =
     std::tuple<std::vector<double>, std::vector<double>, std::vector<double>>;

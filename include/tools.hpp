@@ -63,6 +63,8 @@ TupleOfDouble registrationErrorBias(const PointCloudPtr& srcPointCloudPtr,
                                     const PointCloudPtr& transformedSrcPointCloudPtr);
 double meanTargetRegistrationError(const PointCloudPtr& srcPointCloudPtr,
                                    const PointCloudPtr& transformedSrcPointCloudPtr);
+double meanHorizontalTargetRegistrationError(const PointCloudPtr& srcPointCloudPtr,
+                                             const PointCloudPtr& transformedSrcPointCloudPtr);
 double rootMeanSquareError(const PointCloudPtr& srcPointCloudPtr,
                            const PointCloudPtr& transformedSrcPointCloudPtr);
 double inlierRatio(const PointCloudPtr& srcPointCloudPtr,

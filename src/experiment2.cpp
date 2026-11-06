@@ -9,14 +9,15 @@ int main(int argc, char** argv) {
     time(&timetoday);
     std::cout << "experiment2 initiated on : " << asctime(localtime(&timetoday)) << std::endl;
 
-    if (argc < 1) {
-        throw std::runtime_error("Required arguments: number of iterations");
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <number_of_iterations>" << std::endl;
+        return 1;
     }
     int numberIter = std::stoi(argv[1]);
 
     Settings pipelineSettings = getPipelineDefaultSettings();
 
-    // Harris runs y675_58_5025_17 data file
+    // Harris runs the 400x400m subset data file
     std::cout << "\nHARRIS RUNS\n" << std::endl;
     double seedRef(0.0), seedSource(0.1), seedCustomRotation(0.2);
 
@@ -31,7 +32,7 @@ int main(int argc, char** argv) {
                          &seedRef, &seedSource, &seedCustomRotation);
     }
 
-    // Sift runs y675_58_5025_17 data file
+    // Sift runs the 400x400m subset data file
     std::cout << "\nSIFT RUNS\n" << std::endl;
 
     seedRef = 0.0;

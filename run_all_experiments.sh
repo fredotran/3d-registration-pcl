@@ -2,6 +2,7 @@
 
 # Script to run all experiments in the 3D Registration PCL project
 # This script runs all available executables with appropriate parameters
+# Run from the project root directory
 
 set -e  # Exit on error
 
@@ -41,6 +42,36 @@ check_executable() {
     return 0
 }
 
+# Run a demo that opens a PCL visualizer. The visualizer spins until closed,
+# so enforce a timeout; start Xvfb when no display is available.
+run_visual_demo() {
+    local exe=$1
+    local timeout_sec=${2:-30}
+    local start_xvfb=0
+
+    if [ -z "$DISPLAY" ]; then
+        print_info "No DISPLAY detected, starting Xvfb for headless visualization"
+        export DISPLAY=:99
+        Xvfb :99 -screen 0 1024x768x24 &
+        XVFB_PID=$!
+        start_xvfb=1
+        sleep 1
+    fi
+
+    local exit_code=0
+    (cd build && timeout "$timeout_sec" ./"$exe") || exit_code=$?
+
+    if [ $start_xvfb -eq 1 ]; then
+        kill $XVFB_PID 2>/dev/null || true
+    fi
+
+    if [ $exit_code -eq 124 ]; then
+        print_info "$exe timed out after ${timeout_sec}s (expected - visualizer runs indefinitely)"
+    elif [ $exit_code -ne 0 ]; then
+        print_warning "$exe failed with exit code $exit_code"
+    fi
+}
+
 print_info "========================================"
 print_info "   Running All Experiments"
 print_info "========================================"
@@ -48,65 +79,56 @@ print_info "========================================"
 # Create results directory if it doesn't exist
 mkdir -p results
 
-# Run verification tests
+# Run verification tests (these open an interactive PCL visualizer)
 print_info "Running verification tests..."
 if check_executable "verification_test1"; then
     print_info "Running verification_test1..."
-    cd build
-    ./verification_test1 || print_warning "verification_test1 failed"
-    cd ..
+    run_visual_demo "verification_test1"
 fi
 
 if check_executable "verification_test2"; then
     print_info "Running verification_test2..."
-    cd build
-    ./verification_test2 || print_warning "verification_test2 failed"
-    cd ..
+    run_visual_demo "verification_test2"
 fi
 
 # Run parameter grid search experiments
 print_info "Running parameter grid search experiments..."
 if check_executable "fred_exp_sacia_param_grid_search"; then
     print_info "Running fred_exp_sacia_param_grid_search..."
-    cd build
-    ./fred_exp_sacia_param_grid_search || print_warning "fred_exp_sacia_param_grid_search failed"
-    cd ..
+    (cd build && ./fred_exp_sacia_param_grid_search) || print_warning "fred_exp_sacia_param_grid_search failed"
 fi
 
 if check_executable "exp_sacia_param_grid_search"; then
     print_info "Running exp_sacia_param_grid_search..."
-    cd build
-    ./exp_sacia_param_grid_search || print_warning "exp_sacia_param_grid_search failed"
-    cd ..
+    (cd build && ./exp_sacia_param_grid_search) || print_warning "exp_sacia_param_grid_search failed"
 fi
 
-# Run experiment 2
+# Run experiment 2 (argument = number of iterations)
 print_info "Running experiment 2..."
 if check_executable "experiment2"; then
     print_info "Running experiment2..."
-    cd build
-    ./experiment2 || print_warning "experiment2 failed"
-    cd ..
+    (cd build && ./experiment2 1) || print_warning "experiment2 failed"
 fi
 
 if check_executable "experiment2_ds"; then
     print_info "Running experiment2_ds (downsampled)..."
-    cd build
-    ./experiment2_ds || print_warning "experiment2_ds failed"
-    cd ..
+    (cd build && ./experiment2_ds 1) || print_warning "experiment2_ds failed"
 fi
 
-# Run main registration with example configurations
-print_info "Running main registration with example configurations..."
+# Run main registration (argument = iterations, detector)
+if check_executable "main_registration"; then
+    print_info "Running main_registration..."
+    (cd build && ./main_registration 1) || print_warning "main_registration failed"
+fi
 
-if [ -d "configs" ]; then
+# Run each example configuration through the scenario runner
+print_info "Running configurations in configs/..."
+if [ -d "configs" ] && check_executable "scenario_registration"; then
     for config in configs/*.txt; do
         if [ -f "$config" ]; then
             config_name=$(basename "$config")
-            print_info "Running main_registration with $config_name..."
-            cd build
-            ../main_registration "$config" || print_warning "main_registration with $config_name failed"
-            cd ..
+            print_info "Running scenario_registration with $config_name..."
+            (cd build && ./scenario_registration "../$config" 1) || print_warning "scenario_registration with $config_name failed"
         fi
     done
 else
@@ -115,22 +137,18 @@ fi
 
 # Run unit tests
 print_info "Running unit tests..."
-cd build
-if [ -f "tests/pcl_registration_tests" ]; then
+if [ -f "build/tests/pcl_registration_tests" ]; then
     print_info "Running unit tests with CTest..."
-    ctest --output-on-failure || print_warning "Some unit tests failed"
+    (cd build && ctest --output-on-failure) || print_warning "Some unit tests failed"
 else
     print_warning "Test executable not found. Skipping unit tests."
 fi
-cd ..
 
 # Run benchmarks if available
 print_info "Running benchmarks..."
 if check_executable "benchmark_registration"; then
     print_info "Running benchmark_registration..."
-    cd build
-    ./benchmark_registration || print_warning "benchmark_registration failed"
-    cd ..
+    (cd build && ./benchmark_registration) || print_warning "benchmark_registration failed"
 else
     print_info "Benchmarks not built. To build benchmarks, run:"
     echo "  cmake -B build -DBUILD_BENCHMARKS=ON"

@@ -1,6 +1,6 @@
 pipeline_type=all
 type_transformation=rotation
-surface_model_data_file=../data/y675_58_5025_17.pcd
+surface_model_data_file=../data/y656_65_2550_17_400x400m_subset.pcd
 x_uncertainty=12.7
 y_uncertainty=12.7
 source_width=35	

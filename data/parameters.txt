@@ -1,5 +1,6 @@
 pipeline_type=harris
 num_pipeline_iter=150
+type_transformation=rotation
 surface_model_data_file=../data/reference_LM.pcd
 x_uncertainty=50
 y_uncertainty=50
