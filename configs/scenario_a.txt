@@ -1,0 +1,43 @@
+# Scenario A from Sabel et al., ICAS 2022 (Table 2)
+# A priori errors: 60 m horizontal, 5 deg heading, 0.5 deg pitch/roll, 2% scale
+# PCUAV footprint 67x67 m -> PCref extent ~180x180 m
+
+pipelineType=all
+typeTransformation=displacement
+
+# Reference survey cloud (PCref, e.g. PC2015) and UAV survey cloud (PC2019).
+# Both must be georeferenced in the same coordinate frame and overlap.
+# Replace uav_data_file with a different-epoch cloud for real experiments;
+# here the same cloud is used for both so the config runs out of the box.
+surface_model_data_file=../data/reference_LM.pcd
+uav_data_file=../data/reference_LM.pcd
+
+# PCUAV footprint extent (meters): 90 m AGL, 73.9 deg FOV, 50% overlap
+sourceWidth=67.0
+sourceHeight=67.0
+
+# Fallback uncertainty (used only if no translation range is set)
+x_uncertainty=30.0
+y_uncertainty=30.0
+
+# Horizontal translation error: 60 m uncertainty box -> +/-30 m per axis
+x_translation_min=-30.0
+x_translation_max=30.0
+y_translation_min=-30.0
+y_translation_max=30.0
+z_translation_min=0.0
+z_translation_max=0.0
+
+# Pitch and roll angle errors (degrees)
+x_angle_min=-0.5
+x_angle_max=0.5
+y_angle_min=-0.5
+y_angle_max=0.5
+
+# Heading angle error (degrees)
+z_angle_min=-5.0
+z_angle_max=5.0
+
+# Scale error (2%)
+scale_min=0.98
+scale_max=1.02

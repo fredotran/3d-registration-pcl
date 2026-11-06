@@ -7,7 +7,9 @@
 
 std::string removeExtension(const std::string& filename) {
     size_t lastdot = filename.find_last_of(".");
-    if (lastdot == std::string::npos)
+    size_t lastsep = filename.find_last_of("/\\");
+    // Ignore dots that are part of a directory name (e.g. "..")
+    if (lastdot == std::string::npos || (lastsep != std::string::npos && lastdot < lastsep))
         return filename;
     return filename.substr(0, lastdot);
 }
@@ -87,28 +89,82 @@ void saveResults(const std::string& savedFilename, const StringMap& settingsMap)
     std::cout << "\nResults saved to " << savedFilename << std::endl;
 }
 
+namespace {
+
+// Look up a parameter value, accepting an optional legacy (snake_case) alias
+const std::string& lookupParam(const std::map<std::string, std::string>& parameters,
+                               const std::string& key, const std::string& alias = "") {
+    auto it = parameters.find(key);
+    if (it != parameters.end())
+        return it->second;
+    if (!alias.empty()) {
+        it = parameters.find(alias);
+        if (it != parameters.end())
+            return it->second;
+    }
+    throw std::out_of_range(key);
+}
+
+double parseDoubleParam(const std::map<std::string, std::string>& parameters,
+                        const std::string& key, const std::string& alias = "") {
+    return std::stod(lookupParam(parameters, key, alias));
+}
+
+double parseOptionalDoubleParam(const std::map<std::string, std::string>& parameters,
+                                const std::string& key, double defaultValue,
+                                const std::string& alias = "") {
+    auto it = parameters.find(key);
+    if (it == parameters.end() && !alias.empty())
+        it = parameters.find(alias);
+    if (it == parameters.end() || it->second.empty())
+        return defaultValue;
+    return std::stod(it->second);
+}
+
+std::string parseOptionalStringParam(const std::map<std::string, std::string>& parameters,
+                                     const std::string& key, const std::string& alias = "") {
+    auto it = parameters.find(key);
+    if (it == parameters.end() && !alias.empty())
+        it = parameters.find(alias);
+    return (it != parameters.end()) ? it->second : "";
+}
+
+}  // namespace
+
 TupleParameters parametersArray(const std::string& parametersFilename,
                                 const std::map<std::string, std::string>& parameters) {
     try {
-        std::string pipelineType = parameters.at("pipelineType");
-        std::string typeTransformation = parameters.at("typeTransformation");
-        std::string referenceDataFilename = parameters.at("surface_model_data_file");
+        ExperimentParameters params;
+        params.pipelineType = lookupParam(parameters, "pipelineType", "pipeline_type");
+        params.typeTransformation =
+            lookupParam(parameters, "typeTransformation", "type_transformation");
+        params.referenceDataFilename =
+            lookupParam(parameters, "surface_model_data_file", "surface_model_data_file");
+        params.uavDataFilename =
+            parseOptionalStringParam(parameters, "uav_data_file", "uavDataFilename");
 
-        double x_uncertainty = std::stod(parameters.at("x_uncertainty"));
-        double y_uncertainty = std::stod(parameters.at("y_uncertainty"));
-        double sourceWidth = std::stod(parameters.at("sourceWidth"));
-        double sourceHeight = std::stod(parameters.at("sourceHeight"));
-        double x_angle_min = std::stod(parameters.at("x_angle_min"));
-        double x_angle_max = std::stod(parameters.at("x_angle_max"));
-        double y_angle_min = std::stod(parameters.at("y_angle_min"));
-        double y_angle_max = std::stod(parameters.at("y_angle_max"));
-        double z_angle_min = std::stod(parameters.at("z_angle_min"));
-        double z_angle_max = std::stod(parameters.at("z_angle_max"));
+        params.x_uncertainty = parseDoubleParam(parameters, "x_uncertainty", "xUncertainty");
+        params.y_uncertainty = parseDoubleParam(parameters, "y_uncertainty", "yUncertainty");
+        params.sourceWidth = parseDoubleParam(parameters, "sourceWidth", "source_width");
+        params.sourceHeight = parseDoubleParam(parameters, "sourceHeight", "source_height");
 
-        return {pipelineType,  typeTransformation, referenceDataFilename, x_uncertainty,
-                y_uncertainty, sourceWidth,        sourceHeight,          x_angle_min,
-                x_angle_max,   y_angle_min,        y_angle_max,           z_angle_min,
-                z_angle_max};
+        params.x_angle_min = parseDoubleParam(parameters, "x_angle_min");
+        params.x_angle_max = parseDoubleParam(parameters, "x_angle_max");
+        params.y_angle_min = parseDoubleParam(parameters, "y_angle_min");
+        params.y_angle_max = parseDoubleParam(parameters, "y_angle_max");
+        params.z_angle_min = parseDoubleParam(parameters, "z_angle_min");
+        params.z_angle_max = parseDoubleParam(parameters, "z_angle_max");
+
+        params.x_translation_min = parseOptionalDoubleParam(parameters, "x_translation_min", 0.0);
+        params.x_translation_max = parseOptionalDoubleParam(parameters, "x_translation_max", 0.0);
+        params.y_translation_min = parseOptionalDoubleParam(parameters, "y_translation_min", 0.0);
+        params.y_translation_max = parseOptionalDoubleParam(parameters, "y_translation_max", 0.0);
+        params.z_translation_min = parseOptionalDoubleParam(parameters, "z_translation_min", 0.0);
+        params.z_translation_max = parseOptionalDoubleParam(parameters, "z_translation_max", 0.0);
+        params.scale_min = parseOptionalDoubleParam(parameters, "scale_min", 1.0);
+        params.scale_max = parseOptionalDoubleParam(parameters, "scale_max", 1.0);
+
+        return params;
     } catch (const std::out_of_range& e) {
         throw std::invalid_argument("Missing parameter in file: " + parametersFilename + ". " +
                                     e.what());

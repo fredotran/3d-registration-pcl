@@ -3,6 +3,7 @@
 #include <pcl/io/obj_io.h>
 #include <pcl/io/vtk_lib_io.h>
 
+#include <cmath>
 #include <ctime>
 #include <iomanip>
 #include <numeric>
@@ -195,48 +196,140 @@ PointCloudPtr computeSourceCloud(PointCloudPtr targetCloudPtr, double* seed, dou
 
 namespace {
 
-std::tuple<PointCloudPtr, PointCloudPtr, PointCloudPtr, Eigen::Affine3f, double, double, double>
-setupPipeline(TupleParameters& parametersList, double* seedRef, double* seedSource,
-              double* seedCustomRotation) {
-    std::string pipelineType, typeTransformation, referenceDataFilename;
-    double x_uncertainty, y_uncertainty, sourceWidth, sourceHeight;
-    double x_angle_min, x_angle_max, y_angle_min, y_angle_max, z_angle_min, z_angle_max;
+using SetupPipelineOutput = std::tuple<PointCloudPtr, PointCloudPtr, PointCloudPtr, Eigen::Affine3f,
+                                       double, double, double, double, double, double, double>;
 
-    std::tie(pipelineType, typeTransformation, referenceDataFilename, x_uncertainty, y_uncertainty,
-             sourceWidth, sourceHeight, x_angle_min, x_angle_max, y_angle_min, y_angle_max,
-             z_angle_min, z_angle_max) = parametersList;
+// Crop the UAV (source) and reference (target) clouds at a shared anchor point,
+// following the evaluation setup of Sabel et al. (ICAS 2022): a fixed-size
+// PCUAV footprint is cut from the UAV survey cloud at a random location, while
+// PCref is cut from the reference survey cloud around the same location with an
+// extent that guarantees the displaced PCUAV remains fully contained.
+std::pair<PointCloudPtr, PointCloudPtr> cropScenarioClouds(PointCloudPtr referenceCloudPtr,
+                                                           PointCloudPtr uavCloudPtr,
+                                                           double* seedRef,
+                                                           const ExperimentParameters& params) {
+    pcl::PointXYZ ref_min_pt, ref_max_pt, uav_min_pt, uav_max_pt;
+    pcl::getMinMax3D(*referenceCloudPtr, ref_min_pt, ref_max_pt);
+    pcl::getMinMax3D(*uavCloudPtr, uav_min_pt, uav_max_pt);
 
-    auto surfaceModelCloudPtr = loadingCloud(referenceDataFilename);
+    // overlap of the two georeferenced surveys
+    double overlapX[2] = {std::max(ref_min_pt.x, uav_min_pt.x),
+                          std::min(ref_max_pt.x, uav_max_pt.x)};
+    double overlapY[2] = {std::max(ref_min_pt.y, uav_min_pt.y),
+                          std::min(ref_max_pt.y, uav_max_pt.y)};
+    if (overlapX[0] >= overlapX[1] || overlapY[0] >= overlapY[1]) {
+        throw std::runtime_error(
+            "cropScenarioClouds: reference and UAV clouds do not overlap in the XY plane");
+    }
 
-    auto targetCloudPtr = computeReferenceCloud(surfaceModelCloudPtr, seedRef, sourceWidth,
-                                                sourceHeight, x_uncertainty, y_uncertainty);
-    auto sourceCloudPtr = computeSourceCloud(targetCloudPtr, seedSource, sourceWidth, sourceHeight,
-                                             x_uncertainty, y_uncertainty);
+    // uncertainty box: the a priori position of PCUAV is known up to the
+    // translation error ranges (fallback to 2*uncertainty when no range set)
+    double uncBoxX = (params.x_translation_max > params.x_translation_min)
+                         ? params.x_translation_max - params.x_translation_min
+                         : 2.0 * params.x_uncertainty;
+    double uncBoxY = (params.y_translation_max > params.y_translation_min)
+                         ? params.y_translation_max - params.y_translation_min
+                         : 2.0 * params.y_uncertainty;
 
-    double randomAngleOnX = randomizeDoubleUniform(seedCustomRotation, x_angle_min, x_angle_max);
-    double randomAngleOnY = randomizeDoubleUniform(seedCustomRotation, y_angle_min, y_angle_max);
-    double randomAngleOnZ = randomizeDoubleUniform(seedCustomRotation, z_angle_min, z_angle_max);
+    // PCref extent: square covering the PCUAV footprint enlarged by the
+    // uncertainty box, under worst-case heading rotation and scale error
+    // (paper Table 2: extent = sqrt((sourceW + uncX)^2 + (sourceH + uncY)^2))
+    double scaleMax = std::max(std::abs(params.scale_min), std::abs(params.scale_max));
+    double refSize = std::sqrt((params.sourceWidth + uncBoxX) * (params.sourceWidth + uncBoxX) +
+                               (params.sourceHeight + uncBoxY) * (params.sourceHeight + uncBoxY)) *
+                     scaleMax;
+    std::cout << "\nPCUAV footprint: " << params.sourceWidth << " x " << params.sourceHeight
+              << " m, PCref extent: " << refSize << " x " << refSize << " m" << std::endl;
+
+    // anchor of the experiment, drawn such that PCref stays inside both surveys
+    double margin = 0.5 * refSize;
+    auto anchor = randomizeCoordinate(seedRef, overlapX, overlapY, margin, margin);
+    std::cout << "Experiment anchor: (" << anchor[0] << ", " << anchor[1] << ")" << std::endl;
+
+    auto targetCloudPtr = PointCloudPtr(new PointCloud);
+    cropPointCloud(referenceCloudPtr, targetCloudPtr, anchor[0] - margin, anchor[0] + margin,
+                   anchor[1] - margin, anchor[1] + margin);
+    if (targetCloudPtr->empty()) {
+        throw std::runtime_error("cropScenarioClouds: reference crop is empty");
+    }
+
+    auto sourceCloudPtr = PointCloudPtr(new PointCloud);
+    cropPointCloud(uavCloudPtr, sourceCloudPtr, anchor[0] - 0.5 * params.sourceWidth,
+                   anchor[0] + 0.5 * params.sourceWidth, anchor[1] - 0.5 * params.sourceHeight,
+                   anchor[1] + 0.5 * params.sourceHeight);
+    if (sourceCloudPtr->empty()) {
+        throw std::runtime_error("cropScenarioClouds: UAV crop is empty");
+    }
+
+    return {sourceCloudPtr, targetCloudPtr};
+}
+
+SetupPipelineOutput setupPipeline(const ExperimentParameters& params, double* seedRef,
+                                  double* seedSource, double* seedCustomRotation) {
+    PointCloudPtr sourceCloudPtr, targetCloudPtr;
+
+    if (!params.uavDataFilename.empty()) {
+        // Two-epoch scenario (paper Section 3): PCUAV and PCref are cropped
+        // from different surveys at the same georeferenced location
+        auto referenceCloudPtr = loadingCloud(params.referenceDataFilename);
+        auto uavCloudPtr = loadingCloud(params.uavDataFilename);
+        std::tie(sourceCloudPtr, targetCloudPtr) =
+            cropScenarioClouds(referenceCloudPtr, uavCloudPtr, seedRef, params);
+    } else {
+        // Legacy mode: source and reference are cropped from the same cloud
+        auto surfaceModelCloudPtr = loadingCloud(params.referenceDataFilename);
+        targetCloudPtr =
+            computeReferenceCloud(surfaceModelCloudPtr, seedRef, params.sourceWidth,
+                                  params.sourceHeight, params.x_uncertainty, params.y_uncertainty);
+        sourceCloudPtr =
+            computeSourceCloud(targetCloudPtr, seedSource, params.sourceWidth, params.sourceHeight,
+                               params.x_uncertainty, params.y_uncertainty);
+    }
+
+    // Sample the a priori displacement error: rotation and uniform scale around
+    // the PCUAV centroid, plus a horizontal/vertical translation error
+    double randomAngleOnX =
+        randomizeDoubleUniform(seedCustomRotation, params.x_angle_min, params.x_angle_max);
+    double randomAngleOnY =
+        randomizeDoubleUniform(seedCustomRotation, params.y_angle_min, params.y_angle_max);
+    double randomAngleOnZ =
+        randomizeDoubleUniform(seedCustomRotation, params.z_angle_min, params.z_angle_max);
+    double randomTransX = randomizeDoubleUniform(seedCustomRotation, params.x_translation_min,
+                                                 params.x_translation_max);
+    double randomTransY = randomizeDoubleUniform(seedCustomRotation, params.y_translation_min,
+                                                 params.y_translation_max);
+    double randomTransZ = randomizeDoubleUniform(seedCustomRotation, params.z_translation_min,
+                                                 params.z_translation_max);
+    double randomScale =
+        randomizeDoubleUniform(seedCustomRotation, params.scale_min, params.scale_max);
     std::cout << "\nangle on x : " << randomAngleOnX << "\nangle on y : " << randomAngleOnY
-              << "\nangle on z : " << randomAngleOnZ << std::endl;
+              << "\nangle on z : " << randomAngleOnZ << "\ntranslation on x : " << randomTransX
+              << "\ntranslation on y : " << randomTransY << "\ntranslation on z : " << randomTransZ
+              << "\nscale : " << randomScale << std::endl;
 
-    Eigen::Affine3f first_transform =
-        customRotation(sourceCloudPtr, Eigen::Vector4f::Zero(), Eigen::Vector4f::Zero(),
-                       Eigen::Vector4f::Zero(), randomAngleOnX, randomAngleOnY, randomAngleOnZ);
+    Eigen::Vector4f centroid;
+    pcl::compute3DCentroid(*sourceCloudPtr, centroid);
 
-    std::cout << "\nFirst transformation : \n" << first_transform.matrix() << std::endl;
+    Eigen::Affine3f toOrigin = Eigen::Affine3f::Identity();
+    toOrigin.translation() = -centroid.head<3>();
 
-    Eigen::Affine3f second_transform = Eigen::Affine3f::Identity();
-    second_transform.translation() << 0.0f, 0.0f, 0.0f;
+    Eigen::Affine3f rotScale = Eigen::Affine3f::Identity();
+    rotScale.rotate(Eigen::AngleAxisf((randomAngleOnX * M_PI) / 180, Eigen::Vector3f::UnitX()));
+    rotScale.rotate(Eigen::AngleAxisf((randomAngleOnY * M_PI) / 180, Eigen::Vector3f::UnitY()));
+    rotScale.rotate(Eigen::AngleAxisf((randomAngleOnZ * M_PI) / 180, Eigen::Vector3f::UnitZ()));
+    rotScale.scale(static_cast<float>(randomScale));
 
-    Eigen::Affine3f final_transform = first_transform * second_transform;
-    std::cout << "\nFinal transformation : \n" << final_transform.matrix() << std::endl;
+    Eigen::Affine3f final_transform = toOrigin.inverse() * rotScale * toOrigin;
+    final_transform.translation() += Eigen::Vector3f(randomTransX, randomTransY, randomTransZ);
+    std::cout << "\nDisplacement transformation : \n" << final_transform.matrix() << std::endl;
 
     auto sourceTransformedCloudPtr = PointCloudPtr(new PointCloud);
     pcl::transformPointCloud(*sourceCloudPtr, *sourceTransformedCloudPtr, final_transform);
 
     return {sourceCloudPtr,  targetCloudPtr, sourceTransformedCloudPtr,
             final_transform, randomAngleOnX, randomAngleOnY,
-            randomAngleOnZ};
+            randomAngleOnZ,  randomTransX,   randomTransY,
+            randomTransZ,    randomScale};
 }
 
 template <typename PipelineOutput, int TransformIndex>
@@ -245,18 +338,23 @@ TuplePointCloudPtr fullPipelineTemplate(
     Settings pipelineSettings,
     std::function<PipelineOutput(PointCloudPtr, PointCloudPtr, Settings)> pipelineFunc) {
     auto [sourceCloudPtr, targetCloudPtr, sourceTransformedCloudPtr, final_transform, angleX,
-          angleY, angleZ] = setupPipeline(parametersList, seedRef, seedSource, seedCustomRotation);
+          angleY, angleZ, transX, transY, transZ, scale] =
+        setupPipeline(parametersList, seedRef, seedSource, seedCustomRotation);
 
     auto pipelineOutput = pipelineFunc(sourceTransformedCloudPtr, targetCloudPtr, pipelineSettings);
 
+    // Apply the estimated registration to the displaced cloud and compare it
+    // with the ground-truth crop, as in the MTRE definition of the paper
     auto finalCloudPtr = PointCloudPtr(new PointCloud);
-    pcl::transformPointCloud(*sourceCloudPtr, *finalCloudPtr,
+    pcl::transformPointCloud(*sourceTransformedCloudPtr, *finalCloudPtr,
                              std::get<TransformIndex>(pipelineOutput));
 
     std::cout << "\nNot displaying any results" << std::endl;
 
-    return {sourceCloudPtr, targetCloudPtr, sourceTransformedCloudPtr, finalCloudPtr, angleX,
-            angleY,         angleZ};
+    return {sourceCloudPtr, targetCloudPtr, sourceTransformedCloudPtr,
+            finalCloudPtr,  angleX,         angleY,
+            angleZ,         transX,         transY,
+            transZ,         scale};
 }
 
 }  // namespace
@@ -386,6 +484,28 @@ double meanTargetRegistrationError(const PointCloudPtr& srcPointCloudPtr,
     return sum / count;
 }
 
+double meanHorizontalTargetRegistrationError(const PointCloudPtr& srcPointCloudPtr,
+                                             const PointCloudPtr& transformedSrcPointCloudPtr) {
+    auto coordinatesSrc = Get3DCoordinatesXYZ(srcPointCloudPtr);
+    auto coordinatesSrcTransformed = Get3DCoordinatesXYZ(transformedSrcPointCloudPtr);
+
+    double sum = 0.0;
+    size_t count = coordinatesSrc.size();
+
+#ifdef _OPENMP
+#pragma omp parallel for reduction(+ : sum)
+#endif
+    for (size_t i = 0; i < count; ++i) {
+        double dx = coordinatesSrc[i].x - coordinatesSrcTransformed[i].x;
+        double dy = coordinatesSrc[i].y - coordinatesSrcTransformed[i].y;
+        sum += std::sqrt(dx * dx + dy * dy);
+    }
+
+    if (count == 0)
+        return 0.0;
+    return sum / count;
+}
+
 double rootMeanSquareError(const PointCloudPtr& srcPointCloudPtr,
                            const PointCloudPtr& transformedSrcPointCloudPtr) {
     auto coordinatesSrc = Get3DCoordinatesXYZ(srcPointCloudPtr);
@@ -470,13 +590,7 @@ void fullRegistration(const std::string& fullParametersFilename, Settings pipeli
     auto parameters = readParameters(fullParametersFilename);
     auto parametersList = parametersArray(fullParametersFilename, parameters);
 
-    std::string pipelineType, typeTransformation, referenceDataFilename;
-    double x_uncertainty, y_uncertainty, sourceWidth, sourceHeight;
-    double x_angle_min, x_angle_max, y_angle_min, y_angle_max, z_angle_min, z_angle_max;
-
-    std::tie(pipelineType, typeTransformation, referenceDataFilename, x_uncertainty, y_uncertainty,
-             sourceWidth, sourceHeight, x_angle_min, x_angle_max, y_angle_min, y_angle_max,
-             z_angle_min, z_angle_max) = parametersList;
+    const std::string& pipelineType = parametersList.pipelineType;
 
     TuplePointCloudPtr PointCloudsPtrOutput;
 
@@ -512,9 +626,9 @@ void fullRegistration(const std::string& fullParametersFilename, Settings pipeli
     }
 
     PointCloudPtr sourceCloudPtr, targetCloudPtr, sourceTransformedCloudPtr, transformedCloudPtr;
-    double angleX, angleY, angleZ;
+    double angleX, angleY, angleZ, transX, transY, transZ, scale;
     std::tie(sourceCloudPtr, targetCloudPtr, sourceTransformedCloudPtr, transformedCloudPtr, angleX,
-             angleY, angleZ) = PointCloudsPtrOutput;
+             angleY, angleZ, transX, transY, transZ, scale) = PointCloudsPtrOutput;
 
     std::cout << "\n-------------------------------------------------------------------------------"
                  "----------------\n"
@@ -529,6 +643,12 @@ void fullRegistration(const std::string& fullParametersFilename, Settings pipeli
 
     double rmse = rootMeanSquareError(sourceCloudPtr, transformedCloudPtr);
     std::cout << "[" << pipelineType << "] Root Mean Square Error: " << rmse << std::endl;
+
+    // Horizontal registration accuracy, reported separately in the paper
+    double mtre_horizontal =
+        meanHorizontalTargetRegistrationError(sourceCloudPtr, transformedCloudPtr);
+    std::cout << "[" << pipelineType
+              << "] Mean horizontal Target Registration Error: " << mtre_horizontal << std::endl;
 
     double inlier_threshold = 1.0;
     double inlier_ratio = inlierRatio(sourceCloudPtr, transformedCloudPtr, inlier_threshold);
@@ -559,6 +679,7 @@ void fullRegistration(const std::string& fullParametersFilename, Settings pipeli
     StringMap settingsMap;
     settingsMap["pipelineType"] = pipelineType;
     settingsMap["err_MTRE"] = std::to_string(mtre);
+    settingsMap["err_MTRE_horizontal"] = std::to_string(mtre_horizontal);
     settingsMap["err_RMSE"] = std::to_string(rmse);
     settingsMap["err_inlier_ratio"] = std::to_string(inlier_ratio);
     settingsMap["err_precision"] = std::to_string(precision);
@@ -570,11 +691,16 @@ void fullRegistration(const std::string& fullParametersFilename, Settings pipeli
     settingsMap["angle_x"] = std::to_string(angleX);
     settingsMap["angle_y"] = std::to_string(angleY);
     settingsMap["angle_z"] = std::to_string(angleZ);
-    settingsMap["x_uncertainty"] = std::to_string(x_uncertainty);
-    settingsMap["y_uncertainty"] = std::to_string(y_uncertainty);
-    settingsMap["sourceWidth"] = std::to_string(sourceWidth);
-    settingsMap["sourceHeight"] = std::to_string(sourceHeight);
-    settingsMap["dataset"] = referenceDataFilename;
+    settingsMap["trans_x"] = std::to_string(transX);
+    settingsMap["trans_y"] = std::to_string(transY);
+    settingsMap["trans_z"] = std::to_string(transZ);
+    settingsMap["scale"] = std::to_string(scale);
+    settingsMap["x_uncertainty"] = std::to_string(parametersList.x_uncertainty);
+    settingsMap["y_uncertainty"] = std::to_string(parametersList.y_uncertainty);
+    settingsMap["sourceWidth"] = std::to_string(parametersList.sourceWidth);
+    settingsMap["sourceHeight"] = std::to_string(parametersList.sourceHeight);
+    settingsMap["dataset"] = parametersList.referenceDataFilename;
+    settingsMap["uav_dataset"] = parametersList.uavDataFilename;
     settingsMap["seedRef"] = std::to_string(initialSeedRef);
     settingsMap["seedSource"] = std::to_string(initialSeedSource);
     settingsMap["seedRot"] = std::to_string(initialSeedRot);
