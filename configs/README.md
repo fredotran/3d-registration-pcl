@@ -22,6 +22,12 @@ This directory contains example parameter configuration files for different regi
 - **Best for**: Small point clouds or when computational resources are limited
 - **Parameters**: Optimized for full point cloud alignment
 
+### scenario_a.txt / scenario_b.txt
+- **Pipeline**: Two-epoch scenario evaluation (Sabel et al., ICAS 2022, Table 2)
+- **Features**: PCUAV cropped from a separate UAV survey cloud and displaced by random horizontal translation, heading, pitch/roll and scale errors, then registered against a PCref crop from the reference survey
+- **Best for**: Reproducing the GNSS-denied localisation experiments of the paper
+- **Run with**: `./scenario_registration ../configs/scenario_a.txt 100`
+
 ## Using Configuration Files
 
 Copy an example configuration and modify it for your needs:
@@ -38,9 +44,12 @@ cp configs/sift_pipeline.txt my_experiment.txt
 - `pipelineType`: Registration pipeline (sift, harris, allpoints)
 - `typeTransformation`: Transformation type (rotation, translation, etc.)
 - `surface_model_data_file`: Path to reference point cloud file
+- `uav_data_file` (optional): Path to the UAV survey point cloud used to simulate PCUAV. When set, two-epoch scenario mode is enabled and the source is cropped from this cloud at the same georeferenced anchor as the reference crop. When omitted, the source is cropped from inside the reference cloud (legacy single-cloud mode)
 - `x_uncertainty`, `y_uncertainty`: Positional uncertainty (meters)
 - `sourceWidth`, `sourceHeight`: Source cloud dimensions (meters)
 - `x_angle_min/max`, `y_angle_min/max`, `z_angle_min/max`: Rotation angle ranges (degrees)
+- `x/y/z_translation_min/max` (optional, default 0): A priori translation error ranges (meters)
+- `scale_min/max` (optional, default 1.0): A priori scale error range (factor, e.g. 0.98-1.02 for ±2%)
 
 ### Normal Estimation
 - `normals_search_radius`: Search radius for normal estimation (meters)
