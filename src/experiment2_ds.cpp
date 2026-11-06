@@ -9,8 +9,9 @@ int main(int argc, char** argv) {
     time(&timetoday);
     std::cout << "experiment2_ds initiated on : " << asctime(localtime(&timetoday)) << std::endl;
 
-    if (argc < 1) {
-        throw std::runtime_error("Required arguments: number of iterations");
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <number_of_iterations>" << std::endl;
+        return 1;
     }
     int numberIter = std::stoi(argv[1]);
 

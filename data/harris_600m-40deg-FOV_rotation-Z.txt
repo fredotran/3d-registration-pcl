@@ -1,10 +1,10 @@
 pipeline_type=harris
 type_transformation=rotation
-surface_model_data_file=../data/y675_58_5025_17.pcd
+surface_model_data_file=../data/y656_65_2550_17_400x400m_subset.pcd
 x_uncertainty=12.7
 y_uncertainty=12.7
-source_width=350	
-source_height=233
+source_width=180
+source_height=120
 x_angle_min=0
 x_angle_max=0
 y_angle_min=0
