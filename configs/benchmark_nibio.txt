@@ -1,0 +1,50 @@
+# Benchmark on real public data: FOR-instance NIBIO (Norway, UTM 32N)
+# Real PCUAV/PCref setup: uav cloud = NIBIO plots 17/18/22/23 (Riegl VUX UAV
+# laser scan, ~55x52 m) nested inside the reference block merged from plots
+# 16-19 and 21-23 (~56x101 m). Same acquisition epoch: this benchmarks
+# registration quality on real forest geometry/density, not cross-epoch change.
+#
+# Data: scripts/fetch_benchmark_data.py downloads the LAS members straight out
+# of Zenodo record 8287792 (CC BY 4.0) and writes these PCDs:
+#   python3 scripts/fetch_benchmark_data.py --voxel 0.15 \
+#       --ref-plots 16 17 18 19 21 22 23 --uav-plots 17 18 22 23
+
+# Dense UAV canopy: the harris/iss/sift keypoint detectors return far too few
+# points on this data; FPFH on all points is the working pipeline here.
+pipelineType=all
+typeTransformation=displacement
+
+surface_model_data_file=../data/benchmarks/nibio_ref.pcd
+uav_data_file=../data/benchmarks/nibio_uav.pcd
+
+# PCUAV footprint (m): the PCref extent must fit inside the UAV cloud's
+# ~52x54 m footprint, so source + uncertainty is scaled down from the paper's
+# 67 m
+sourceWidth=20.0
+sourceHeight=20.0
+
+# Fallback uncertainty (used only if no translation range is set)
+x_uncertainty=6.0
+y_uncertainty=6.0
+
+# Horizontal translation error: 12 m uncertainty box -> +/-6 m per axis
+x_translation_min=-6.0
+x_translation_max=6.0
+y_translation_min=-6.0
+y_translation_max=6.0
+z_translation_min=0.0
+z_translation_max=0.0
+
+# Pitch and roll angle errors (degrees)
+x_angle_min=-2.0
+x_angle_max=2.0
+y_angle_min=-2.0
+y_angle_max=2.0
+
+# Heading angle error (degrees)
+z_angle_min=-20.0
+z_angle_max=20.0
+
+# Scale error (2%)
+scale_min=0.98
+scale_max=1.02
