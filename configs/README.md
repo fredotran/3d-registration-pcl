@@ -28,6 +28,15 @@ This directory contains example parameter configuration files for different regi
 - **Best for**: Reproducing the GNSS-denied localisation experiments of the paper
 - **Run with**: `./scenario_registration ../configs/scenario_a.txt 100`
 
+### benchmark_nibio.txt
+- **Pipeline**: Two-epoch scenario evaluation on real public data (FOR-instance NIBIO, Zenodo record 8287792, CC BY 4.0)
+- **Features**: `uav_data_file` is the NIBIO plots 17/18/22/23 UAV laser scan (Riegl VUX, boreal forest, Norway, ~55x52 m) nested inside a reference block merged from plots 16-19 and 21-23 (~56x101 m) — a real PCUAV-inside-PCref setup in UTM 32N coordinates (converted to a local frame with a common offset by the fetch script)
+- **Data setup**: `pip install remotezip laspy numpy`, then `python3 scripts/fetch_benchmark_data.py --voxel 0.15 --ref-plots 16 17 18 19 21 22 23 --uav-plots 17 18 22 23` — streams only the needed LAS members (~470 MB transferred) out of the 1.6 GB archive and writes `data/benchmarks/nibio_{ref,uav}.pcd` (gitignored)
+- **Pipeline choice**: use `all` — the Harris/ISS/SIFT detectors are tuned for sparse ALS and return far too few keypoints on dense UAV canopy
+- **Caveat**: single acquisition epoch, so this benchmarks registration quality on real forest geometry/density, not cross-epoch change; the PCref extent must fit inside the UAV cloud footprint, so plot selection controls the maximum `sourceWidth` + translation range
+- **Runtime**: ~10-15 min per iteration on the merged block (normals + FPFH on ~3.2M points + SAC-IA)
+- **Run with**: `./scenario_registration ../configs/benchmark_nibio.txt 3`
+
 ## Using Configuration Files
 
 Copy an example configuration and modify it for your needs:
